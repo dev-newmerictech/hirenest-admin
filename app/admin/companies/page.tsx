@@ -305,9 +305,9 @@ export default function CompaniesPage() {
     <AuthGuard>
       <AdminLayout>
         <div className="space-y-6">
-          <PageHeader title="Companies" description="Manage company accounts and verifications" />
 
           <div className="flex items-center justify-between">
+            <PageHeader title="Companies" description="Manage company accounts and verifications" />
             <SearchBar placeholder="Search by company name..." value={searchQuery} onChange={handleSearchChange} />
           </div>
 

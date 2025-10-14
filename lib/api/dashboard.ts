@@ -7,6 +7,7 @@ export interface DashboardStatsData {
   totalJobProviders: number;
   totalJobs: number;
   totalApplications: number;
+  totalUsers: number;
 }
 
 export interface JobSeekersCountResponse {

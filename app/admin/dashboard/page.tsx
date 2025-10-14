@@ -33,13 +33,6 @@ export default function DashboardPage() {
         <div className="space-y-8">
           <PageHeader title="Dashboard" description="Overview of your job listing platform" />
 
-          {/* Show error if any */}
-          {error && (
-            <div className="p-4 rounded-lg bg-destructive/10 border border-destructive text-destructive">
-              <p className="text-sm font-medium">Error: {error}</p>
-            </div>
-          )}
-
           {isLoading ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
               {[...Array(4)].map((_, i) => (
@@ -47,7 +40,13 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+              <StatCard
+                title="All User"
+                value={totalJobSeekers}
+                icon={Users}
+                description="Total users"
+              />
               <StatCard
                 title="Job Seekers"
                 value={totalJobSeekers}

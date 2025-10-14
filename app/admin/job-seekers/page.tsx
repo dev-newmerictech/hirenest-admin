@@ -236,9 +236,9 @@ export default function JobSeekersPage() {
     <AuthGuard>
       <AdminLayout>
         <div className="space-y-6">
-          <PageHeader title="Job Seekers" description="Manage job seeker accounts" />
 
           <div className="flex items-center justify-between">
+            <PageHeader title="Job Seekers" description="Manage job seeker accounts" />
             <SearchBar 
               placeholder="Search by name, email or phone..." 
               value={searchQuery} 

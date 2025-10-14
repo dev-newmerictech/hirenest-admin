@@ -8,6 +8,7 @@ interface DashboardState {
   totalJobProviders: number;
   totalJobs: number;
   totalApplications: number;
+  totalUsers: number;
   isLoading: boolean;
   error: string | null;
 }
@@ -18,6 +19,7 @@ const initialState: DashboardState = {
   totalJobProviders: 0,
   totalJobs: 0,
   totalApplications: 0,
+  totalUsers: 0,
   isLoading: false,
   error: null,
 };
@@ -57,6 +59,7 @@ const dashboardSlice = createSlice({
       state.totalJobProviders = 0;
       state.totalJobs = 0;
       state.totalApplications = 0;
+      state.totalUsers = 0;
       state.isLoading = false;
       state.error = null;
     },
@@ -76,6 +79,7 @@ const dashboardSlice = createSlice({
         state.totalJobProviders = action.payload.data.totalJobProviders;
         state.totalJobs = action.payload.data.totalJobs;
         state.totalApplications = action.payload.data.totalApplications;
+        state.totalUsers = action.payload.data.totalUsers;
         state.error = null;
       })
       // Fetch job seekers count - rejected
