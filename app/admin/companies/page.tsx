@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
 import { PageHeader } from "@/components/admin/page-header"
@@ -14,51 +14,74 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import {
+  fetchAllCompanies,
+  toggleCompanyStatus,
+  updateCompany,
+  deleteCompany,
+  setSearchQuery,
+  clearError,
+} from "@/lib/store/companiesSlice"
 import type { Company } from "@/lib/types"
 import { format } from "date-fns"
 import { MoreVertical, Eye, Ban, CheckCircle, Trash2, ShieldCheck, ShieldX } from "lucide-react"
 
 export default function CompaniesPage() {
   const { toast } = useToast()
-  const [companies, setCompanies] = useState<Company[]>([])
-  const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
+  const dispatch = useAppDispatch()
+  
+  // Redux state
+  const { companies, pagination, isLoading, isUpdating, isDeleting, error, searchQuery } = useAppSelector(
+    (state) => state.companies
+  )
+  
+  // Local state
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [formData, setFormData] = useState<Partial<Company>>({})
-  const [isSaving, setIsSaving] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
+  // Fetch companies on mount and when page changes
   useEffect(() => {
-    fetchCompanies()
-  }, [])
+    dispatch(fetchAllCompanies({ page: currentPage, limit: 10 }))
+  }, [dispatch, currentPage])
 
+  // Show error toast
   useEffect(() => {
-    const filtered = companies.filter((company) => company.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    setFilteredCompanies(filtered)
-  }, [searchQuery, companies])
-
-  const fetchCompanies = async () => {
-    try {
-      const response = await fetch("/api/admin/companies")
-      if (response.ok) {
-        const data = await response.json()
-        setCompanies(data)
-        setFilteredCompanies(data)
-      }
-    } catch (error) {
-      console.error("[v0] Failed to fetch companies:", error)
+    if (error) {
       toast({
         title: "Error",
-        description: "Failed to load companies",
+        description: error,
         variant: "destructive",
       })
-    } finally {
-      setIsLoading(false)
+      dispatch(clearError())
     }
-  }
+  }, [error, toast, dispatch])
+
+  // Filter companies based on search query
+  const filteredCompanies = useMemo(() => {
+    if (!searchQuery.trim()) return companies
+    
+    const query = searchQuery.toLowerCase()
+    return companies.filter(
+      (company) =>
+        company.name.toLowerCase().includes(query) ||
+        company.email.toLowerCase().includes(query) ||
+        company.industry.toLowerCase().includes(query)
+    )
+  }, [searchQuery, companies])
 
   const handleView = (company: Company) => {
     setSelectedCompany(company)
@@ -67,111 +90,118 @@ export default function CompaniesPage() {
   }
 
   const handleToggleStatus = async (company: Company) => {
-    try {
-      const response = await fetch(`/api/admin/companies/${company.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !company.isActive }),
+    const result = await dispatch(
+      toggleCompanyStatus({ 
+        id: company.id, 
+        isActive: !company.isActive 
       })
-
-      if (response.ok) {
-        setCompanies((prev) => prev.map((c) => (c.id === company.id ? { ...c, isActive: !c.isActive } : c)))
-        toast({
-          title: "Success",
-          description: `Company ${company.isActive ? "deactivated" : "activated"} successfully`,
-        })
-      }
-    } catch (error) {
+    )
+    
+    if (toggleCompanyStatus.fulfilled.match(result)) {
       toast({
-        title: "Error",
-        description: "Failed to update status",
-        variant: "destructive",
+        title: "Success",
+        description: `Company ${company.isActive ? "deactivated" : "activated"} successfully`,
       })
     }
   }
 
   const handleVerification = async (company: Company, status: "approved" | "rejected") => {
-    try {
-      const response = await fetch(`/api/admin/companies/${company.id}/verification`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verificationStatus: status }),
-      })
-
-      if (response.ok) {
-        setCompanies((prev) =>
-          prev.map((c) =>
-            c.id === company.id ? { ...c, verificationStatus: status, isVerified: status === "approved" } : c,
-          ),
-        )
-        toast({
-          title: "Success",
-          description: `Company verification ${status}`,
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update verification status",
-        variant: "destructive",
-      })
-    }
+    // Note: Verification endpoint not provided in API list, keeping as is for now
+    // TODO: Add verification API endpoint when available
+    toast({
+      title: "Info",
+      description: "Verification API endpoint not yet configured",
+      variant: "default",
+    })
   }
 
   const handleDelete = async (company: Company) => {
     if (!confirm(`Are you sure you want to delete ${company.name}?`)) return
 
-    try {
-      const response = await fetch(`/api/admin/companies/${company.id}`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        setCompanies((prev) => prev.filter((c) => c.id !== company.id))
-        toast({
-          title: "Success",
-          description: "Company deleted successfully",
-        })
-      }
-    } catch (error) {
+    const result = await dispatch(deleteCompany(company.id))
+    
+    if (deleteCompany.fulfilled.match(result)) {
       toast({
-        title: "Error",
-        description: "Failed to delete company",
-        variant: "destructive",
+        title: "Success",
+        description: "Company deleted successfully",
       })
+      setIsDetailOpen(false)
     }
   }
 
   const handleUpdate = async () => {
     if (!selectedCompany) return
 
-    setIsSaving(true)
-    try {
-      const response = await fetch(`/api/admin/companies/${selectedCompany.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+    const result = await dispatch(
+      updateCompany({
+        id: selectedCompany.id,
+        data: {
+          name: formData.name,
+          email: formData.email,
+          industry: formData.industry,
+        },
       })
-
-      if (response.ok) {
-        const updatedCompany = await response.json()
-        setCompanies((prev) => prev.map((c) => (c.id === selectedCompany.id ? updatedCompany : c)))
-        setSelectedCompany(updatedCompany)
-        toast({
-          title: "Success",
-          description: "Company updated successfully",
-        })
-        setIsDetailOpen(false)
-      }
-    } catch (error) {
+    )
+    
+    if (updateCompany.fulfilled.match(result)) {
       toast({
-        title: "Error",
-        description: "Failed to update company",
-        variant: "destructive",
+        title: "Success",
+        description: "Company updated successfully",
       })
-    } finally {
-      setIsSaving(false)
+      setIsDetailOpen(false)
     }
+  }
+
+  const handleSearchChange = (value: string) => {
+    dispatch(setSearchQuery(value))
+    // Reset to page 1 when searching
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    if (!pagination) return []
+    
+    const { currentPage, totalPages } = pagination
+    const pages: (number | 'ellipsis')[] = []
+    
+    if (totalPages <= 7) {
+      // Show all pages if 7 or fewer
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Always show first page
+      pages.push(1)
+      
+      if (currentPage > 3) {
+        pages.push('ellipsis')
+      }
+      
+      // Show pages around current page
+      const start = Math.max(2, currentPage - 1)
+      const end = Math.min(totalPages - 1, currentPage + 1)
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+      
+      if (currentPage < totalPages - 2) {
+        pages.push('ellipsis')
+      }
+      
+      // Always show last page
+      pages.push(totalPages)
+    }
+    
+    return pages
   }
 
   const columns: Column<Company>[] = [
@@ -278,13 +308,84 @@ export default function CompaniesPage() {
           <PageHeader title="Companies" description="Manage company accounts and verifications" />
 
           <div className="flex items-center justify-between">
-            <SearchBar placeholder="Search by company name..." value={searchQuery} onChange={setSearchQuery} />
+            <SearchBar placeholder="Search by company name..." value={searchQuery} onChange={handleSearchChange} />
           </div>
 
           {isLoading ? (
             <div className="h-64 rounded-lg bg-muted animate-pulse" />
           ) : (
-            <DataTable columns={columns} data={filteredCompanies} emptyMessage="No companies found" />
+            <>
+              <DataTable columns={columns} data={filteredCompanies} emptyMessage="No companies found" />
+              
+              {/* Pagination */}
+              {pagination && pagination.totalPages > 1 && !searchQuery && (
+                <div className="flex items-center justify-between border-t border-border pt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
+                    {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
+                    {pagination.totalItems} companies
+                  </div>
+                  
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (pagination.currentPage > 1) {
+                              handlePageChange(pagination.currentPage - 1)
+                            }
+                          }}
+                          className={
+                            pagination.currentPage === 1
+                              ? 'pointer-events-none opacity-50'
+                              : 'cursor-pointer'
+                          }
+                        />
+                      </PaginationItem>
+                      
+                      {getPageNumbers().map((page, index) => (
+                        <PaginationItem key={index}>
+                          {page === 'ellipsis' ? (
+                            <PaginationEllipsis />
+                          ) : (
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handlePageChange(page)
+                              }}
+                              isActive={page === pagination.currentPage}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+                      
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (pagination.currentPage < pagination.totalPages) {
+                              handlePageChange(pagination.currentPage + 1)
+                            }
+                          }}
+                          className={
+                            pagination.currentPage === pagination.totalPages
+                              ? 'pointer-events-none opacity-50'
+                              : 'cursor-pointer'
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -380,11 +481,11 @@ export default function CompaniesPage() {
               )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isSaving}>
+                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isUpdating}>
                   Cancel
                 </Button>
-                <Button onClick={handleUpdate} disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save Changes"}
+                <Button onClick={handleUpdate} disabled={isUpdating}>
+                  {isUpdating ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>

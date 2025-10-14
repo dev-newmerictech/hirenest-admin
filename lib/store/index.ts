@@ -3,11 +3,15 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './authSlice';
 import dashboardReducer from './dashboardSlice';
+import jobSeekersReducer from './jobSeekersSlice';
+import companiesReducer from './companiesSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     dashboard: dashboardReducer,
+    jobSeekers: jobSeekersReducer,
+    companies: companiesReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

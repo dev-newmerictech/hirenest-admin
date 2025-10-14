@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
 import { PageHeader } from "@/components/admin/page-header"
@@ -14,53 +14,72 @@ import { DetailDrawer } from "@/components/admin/detail-drawer"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { useToast } from "@/hooks/use-toast"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import {
+  fetchAllJobSeekers,
+  toggleJobSeekerStatus,
+  updateJobSeeker,
+  deleteJobSeeker,
+  setSearchQuery,
+  clearError,
+} from "@/lib/store/jobSeekersSlice"
 import type { JobSeeker } from "@/lib/types"
 import { format } from "date-fns"
 
 export default function JobSeekersPage() {
   const { toast } = useToast()
-  const [jobSeekers, setJobSeekers] = useState<JobSeeker[]>([])
-  const [filteredJobSeekers, setFilteredJobSeekers] = useState<JobSeeker[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [isLoading, setIsLoading] = useState(true)
+  const dispatch = useAppDispatch()
+  
+  // Redux state
+  const { jobSeekers, pagination, isLoading, isUpdating, isDeleting, error, searchQuery } = useAppSelector(
+    (state) => state.jobSeekers
+  )
+  
+  // Local state
   const [selectedJobSeeker, setSelectedJobSeeker] = useState<JobSeeker | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [formData, setFormData] = useState<Partial<JobSeeker>>({})
-  const [isSaving, setIsSaving] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
+  // Fetch job seekers on mount and when page changes
   useEffect(() => {
-    fetchJobSeekers()
-  }, [])
+    dispatch(fetchAllJobSeekers({ page: currentPage, limit: 10 }))
+  }, [dispatch, currentPage])
 
+  // Show error toast
   useEffect(() => {
-    const filtered = jobSeekers.filter(
-      (seeker) =>
-        seeker.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        seeker.email.toLowerCase().includes(searchQuery.toLowerCase()),
-    )
-    setFilteredJobSeekers(filtered)
-  }, [searchQuery, jobSeekers])
-
-  const fetchJobSeekers = async () => {
-    try {
-      const response = await fetch("/api/admin/job-seekers")
-      if (response.ok) {
-        const data = await response.json()
-        setJobSeekers(data)
-        setFilteredJobSeekers(data)
-      }
-    } catch (error) {
-      console.error("[v0] Failed to fetch job seekers:", error)
+    if (error) {
       toast({
         title: "Error",
-        description: "Failed to load job seekers",
+        description: error,
         variant: "destructive",
       })
-    } finally {
-      setIsLoading(false)
+      dispatch(clearError())
     }
-  }
+  }, [error, toast, dispatch])
+
+  // Filter job seekers based on search query
+  const filteredJobSeekers = useMemo(() => {
+    if (!searchQuery.trim()) return jobSeekers
+    
+    const query = searchQuery.toLowerCase()
+    return jobSeekers.filter(
+      (seeker) =>
+        seeker.name.toLowerCase().includes(query) ||
+        seeker.email.toLowerCase().includes(query) ||
+        seeker.phone.toLowerCase().includes(query)
+    )
+  }, [searchQuery, jobSeekers])
 
   const handleView = (jobSeeker: JobSeeker) => {
     setSelectedJobSeeker(jobSeeker)
@@ -69,25 +88,17 @@ export default function JobSeekersPage() {
   }
 
   const handleToggleStatus = async (jobSeeker: JobSeeker) => {
-    try {
-      const response = await fetch(`/api/admin/job-seekers/${jobSeeker.id}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !jobSeeker.isActive }),
+    const result = await dispatch(
+      toggleJobSeekerStatus({ 
+        id: jobSeeker.id, 
+        isActive: !jobSeeker.isActive 
       })
-
-      if (response.ok) {
-        setJobSeekers((prev) => prev.map((js) => (js.id === jobSeeker.id ? { ...js, isActive: !js.isActive } : js)))
-        toast({
-          title: "Success",
-          description: `Job seeker ${jobSeeker.isActive ? "deactivated" : "activated"} successfully`,
-        })
-      }
-    } catch (error) {
+    )
+    
+    if (toggleJobSeekerStatus.fulfilled.match(result)) {
       toast({
-        title: "Error",
-        description: "Failed to update status",
-        variant: "destructive",
+        title: "Success",
+        description: `Job seeker ${jobSeeker.isActive ? "deactivated" : "activated"} successfully`,
       })
     }
   }
@@ -95,57 +106,90 @@ export default function JobSeekersPage() {
   const handleDelete = async (jobSeeker: JobSeeker) => {
     if (!confirm(`Are you sure you want to delete ${jobSeeker.name}?`)) return
 
-    try {
-      const response = await fetch(`/api/admin/job-seekers/${jobSeeker.id}`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        setJobSeekers((prev) => prev.filter((js) => js.id !== jobSeeker.id))
-        toast({
-          title: "Success",
-          description: "Job seeker deleted successfully",
-        })
-      }
-    } catch (error) {
+    const result = await dispatch(deleteJobSeeker(jobSeeker.id))
+    
+    if (deleteJobSeeker.fulfilled.match(result)) {
       toast({
-        title: "Error",
-        description: "Failed to delete job seeker",
-        variant: "destructive",
+        title: "Success",
+        description: "Job seeker deleted successfully",
       })
+      setIsDetailOpen(false)
     }
   }
 
   const handleUpdate = async () => {
     if (!selectedJobSeeker) return
 
-    setIsSaving(true)
-    try {
-      const response = await fetch(`/api/admin/job-seekers/${selectedJobSeeker.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+    const result = await dispatch(
+      updateJobSeeker({
+        id: selectedJobSeeker.id,
+        data: {
+          name: formData.name,
+          email: formData.email,
+          phone: formData.phone,
+        },
       })
-
-      if (response.ok) {
-        const updatedJobSeeker = await response.json()
-        setJobSeekers((prev) => prev.map((js) => (js.id === selectedJobSeeker.id ? updatedJobSeeker : js)))
-        setSelectedJobSeeker(updatedJobSeeker)
-        toast({
-          title: "Success",
-          description: "Job seeker updated successfully",
-        })
-        setIsDetailOpen(false)
-      }
-    } catch (error) {
+    )
+    
+    if (updateJobSeeker.fulfilled.match(result)) {
       toast({
-        title: "Error",
-        description: "Failed to update job seeker",
-        variant: "destructive",
+        title: "Success",
+        description: "Job seeker updated successfully",
       })
-    } finally {
-      setIsSaving(false)
+      setIsDetailOpen(false)
     }
+  }
+
+  const handleSearchChange = (value: string) => {
+    dispatch(setSearchQuery(value))
+    // Reset to page 1 when searching
+    if (currentPage !== 1) {
+      setCurrentPage(1)
+    }
+  }
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    if (!pagination) return []
+    
+    const { currentPage, totalPages } = pagination
+    const pages: (number | 'ellipsis')[] = []
+    
+    if (totalPages <= 7) {
+      // Show all pages if 7 or fewer
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
+      }
+    } else {
+      // Always show first page
+      pages.push(1)
+      
+      if (currentPage > 3) {
+        pages.push('ellipsis')
+      }
+      
+      // Show pages around current page
+      const start = Math.max(2, currentPage - 1)
+      const end = Math.min(totalPages - 1, currentPage + 1)
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i)
+      }
+      
+      if (currentPage < totalPages - 2) {
+        pages.push('ellipsis')
+      }
+      
+      // Always show last page
+      pages.push(totalPages)
+    }
+    
+    return pages
   }
 
   const columns: Column<JobSeeker>[] = [
@@ -195,13 +239,88 @@ export default function JobSeekersPage() {
           <PageHeader title="Job Seekers" description="Manage job seeker accounts" />
 
           <div className="flex items-center justify-between">
-            <SearchBar placeholder="Search by name or email..." value={searchQuery} onChange={setSearchQuery} />
+            <SearchBar 
+              placeholder="Search by name, email or phone..." 
+              value={searchQuery} 
+              onChange={handleSearchChange} 
+            />
           </div>
 
           {isLoading ? (
             <div className="h-64 rounded-lg bg-muted animate-pulse" />
           ) : (
-            <DataTable columns={columns} data={filteredJobSeekers} emptyMessage="No job seekers found" />
+            <>
+              <DataTable columns={columns} data={filteredJobSeekers} emptyMessage="No job seekers found" />
+              
+              {/* Pagination */}
+              {pagination && pagination.totalPages > 1 && !searchQuery && (
+                <div className="flex items-center justify-between border-t border-border pt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
+                    {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
+                    {pagination.totalItems} job seekers
+                  </div>
+                  
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (pagination.currentPage > 1) {
+                              handlePageChange(pagination.currentPage - 1)
+                            }
+                          }}
+                          className={
+                            pagination.currentPage === 1
+                              ? 'pointer-events-none opacity-50'
+                              : 'cursor-pointer'
+                          }
+                        />
+                      </PaginationItem>
+                      
+                      {getPageNumbers().map((page, index) => (
+                        <PaginationItem key={index}>
+                          {page === 'ellipsis' ? (
+                            <PaginationEllipsis />
+                          ) : (
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handlePageChange(page)
+                              }}
+                              isActive={page === pagination.currentPage}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+                      
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (pagination.currentPage < pagination.totalPages) {
+                              handlePageChange(pagination.currentPage + 1)
+                            }
+                          }}
+                          className={
+                            pagination.currentPage === pagination.totalPages
+                              ? 'pointer-events-none opacity-50'
+                              : 'cursor-pointer'
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -248,11 +367,11 @@ export default function JobSeekersPage() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isSaving}>
+                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isUpdating}>
                   Cancel
                 </Button>
-                <Button onClick={handleUpdate} disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save Changes"}
+                <Button onClick={handleUpdate} disabled={isUpdating}>
+                  {isUpdating ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>

@@ -16,6 +16,19 @@ export interface JobSeeker {
   isActive: boolean
 }
 
+// API Response format from backend
+export interface JobSeekerAPIResponse {
+  _id: string
+  name: string
+  email: string
+  mobile: {
+    countryCode: number
+    mobileNumber: number
+  }
+  isActive: boolean
+  createdAt: string
+}
+
 export interface Company {
   id: string
   name: string
@@ -25,6 +38,22 @@ export interface Company {
   isActive: boolean
   isVerified: boolean
   verificationStatus: "pending" | "approved" | "rejected"
+}
+
+// API Response format from backend for companies
+export interface CompanyAPIResponse {
+  _id: string
+  name: string
+  email: string
+  industry?: string
+  mobile: {
+    countryCode: number | null
+    mobileNumber: number | null
+  }
+  isActive: boolean
+  isVerified?: boolean
+  verificationStatus?: "pending" | "approved" | "rejected"
+  createdAt: string
 }
 
 export interface Job {
