@@ -4,69 +4,63 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { setAuthSession } from "@/lib/auth"
 import { useToast } from "@/hooks/use-toast"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { loginAsync, clearError } from "@/lib/store/authSlice"
 import './login.css'
 
 export default function AdminLoginPage() {
   const router = useRouter()
   const { toast } = useToast()
+  const dispatch = useAppDispatch()
+  
+  // Redux state
+  const { isLoading, error, isAuthenticated, user } = useAppSelector((state) => state.auth)
+  
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      router.replace("/admin/dashboard")
+    }
+  }, [isAuthenticated, user, router])
+
+  // Handle login errors
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Login failed",
+        description: error,
+        variant: "destructive",
+      })
+      dispatch(clearError())
+    }
+  }, [error, toast, dispatch])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setIsLoading(true)
 
     try {
-      // Call blank API endpoint
-      const response = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-
-        // Set session
-        setAuthSession({
-          user: {
-            id: data.user.id,
-            email: data.user.email,
-            role: "admin",
-          },
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        })
-
-        toast({
-          title: "Login successful",
-          description: "Welcome back!",
-        })
-
-        router.push("/admin/dashboard")
-      } else {
-        toast({
-          title: "Login failed",
-          description: "Invalid email or password",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
+      // Dispatch login action
+      const result = await dispatch(loginAsync({ email, password })).unwrap()
+      
+      // Show success message
       toast({
-        title: "Error",
-        description: "An error occurred during login",
-        variant: "destructive",
+        title: "Login successful",
+        description: `Welcome back, ${result.user.firstName}!`,
       })
-    } finally {
-      setIsLoading(false)
+
+      // Redirect to dashboard
+      router.replace("/admin/dashboard")
+    } catch (error) {
+      // Error is handled by useEffect above
+      console.error("Login error:", error)
     }
   }
 
