@@ -19,7 +19,8 @@ export default function DashboardPage() {
     totalJobs, 
     totalApplications,
     isLoading,
-    error 
+    error,
+    totalUsers
   } = useAppSelector((state) => state.dashboard)
 
   useEffect(() => {
@@ -43,7 +44,7 @@ export default function DashboardPage() {
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
               <StatCard
                 title="All User"
-                value={totalJobSeekers}
+                value={totalUsers}
                 icon={Users}
                 description="Total users"
               />
