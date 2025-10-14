@@ -34,6 +34,8 @@ export function getAuthSession(): AuthSession | null {
 export function clearAuthSession(): void {
   if (typeof window !== "undefined") {
     localStorage.removeItem("admin_session")
+    localStorage.removeItem("token")
+    localStorage.removeItem("user")
   }
 }
 

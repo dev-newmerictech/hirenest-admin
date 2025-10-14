@@ -218,20 +218,22 @@ export default function JobsPage() {
     <AuthGuard>
       <AdminLayout>
         <div className="space-y-6">
-          <PageHeader title="Job Management" description="Manage job postings and their status" />
+          <div className="flex items-center justify-between">
+            <PageHeader title="Job Management" description="Manage job postings and their status" />
 
-          <div className="flex items-center gap-4">
-            <SearchBar placeholder="Search by job title..." value={searchQuery} onChange={setSearchQuery} />
-            <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Jobs</SelectItem>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-4">
+              <SearchBar placeholder="Search by job title..." value={searchQuery} onChange={setSearchQuery} />
+              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                <SelectTrigger className="w-[180px] bg-white">
+                  <SelectValue placeholder="Filter by status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Jobs</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {isLoading ? (

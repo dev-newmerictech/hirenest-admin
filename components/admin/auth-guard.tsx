@@ -6,7 +6,7 @@ import type React from "react"
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { isAuthenticated } from "@/lib/auth"
+import { useAppSelector } from "@/lib/store/hooks"
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -14,15 +14,17 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter()
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth)
   const [isChecking, setIsChecking] = useState(true)
 
   useEffect(() => {
-    if (!isAuthenticated()) {
+    // Check if user is authenticated
+    if (!isAuthenticated || !user) {
       router.push("/admin/login")
     } else {
       setIsChecking(false)
     }
-  }, [router])
+  }, [isAuthenticated, user, router])
 
   if (isChecking) {
     return (

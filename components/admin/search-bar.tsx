@@ -20,7 +20,7 @@ export function SearchBar({ placeholder = "Search...", value, onChange }: Search
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="pl-9"
+        className="pl-9 bg-white"
       />
     </div>
   )

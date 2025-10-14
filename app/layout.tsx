@@ -7,6 +7,7 @@ import { Toaster } from "@/components/ui/toaster"
 import "./globals.css"
 import { Suspense } from "react"
 import { ThemeProvider } from "@/components/theme-provider"
+import { ReduxProvider } from "@/components/providers/redux-provider"
 
 export const metadata: Metadata = {
   title: "HireNest",
@@ -22,12 +23,14 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
-          <Suspense fallback={null}>
-            {children}
-            <Toaster />
-          </Suspense>
-        </ThemeProvider>
+        <ReduxProvider>
+          <ThemeProvider attribute="class" defaultTheme="white" enableSystem disableTransitionOnChange>
+            <Suspense fallback={null}>
+              {children}
+              <Toaster />
+            </Suspense>
+          </ThemeProvider>
+        </ReduxProvider>
         <Analytics />
       </body>
     </html>
