@@ -56,6 +56,46 @@ export interface CompanyAPIResponse {
   createdAt: string
 }
 
+export interface JobPostAPIResponse {
+  _id: string
+  title: string
+  description: string
+  contactEmail: string
+  contactPhone: {
+    countryCode: number | null
+    mobileNumber: number | null
+  }
+  hasCollectiveScreening: boolean
+  address: {
+    addressLine1: string
+    country: string
+    state: string
+    city: string
+    postalCode: string
+    location: {
+      latitude: number
+      longitude: number
+    }
+  }
+  company: string | {
+    _id: string
+    name: string
+    email: string
+  }
+  preferences: {
+    skills: string[]
+    workMode: string[]
+    employmentType: string[]
+  }
+  jobPostDeadLine: string
+  jobViews: number
+  jobApplied: number
+  jobStatus: "open" | "closed"
+  externalLink: string
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Job {
   id: string
   title: string
@@ -66,6 +106,8 @@ export interface Job {
   status: "active" | "closed"
   location: string
   type: "full-time" | "part-time" | "contract" | "internship"
+  salary?: string
+  requirements?: string[]
 }
 
 export interface Application {

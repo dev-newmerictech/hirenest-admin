@@ -5,6 +5,7 @@ import authReducer from './authSlice';
 import dashboardReducer from './dashboardSlice';
 import jobSeekersReducer from './jobSeekersSlice';
 import companiesReducer from './companiesSlice';
+import jobPostsReducer from './jobPostsSlice';
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     dashboard: dashboardReducer,
     jobSeekers: jobSeekersReducer,
     companies: companiesReducer,
+    jobPosts: jobPostsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

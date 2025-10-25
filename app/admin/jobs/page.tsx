@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
 import { PageHeader } from "@/components/admin/page-header"
@@ -16,55 +16,92 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination"
 import { useToast } from "@/hooks/use-toast"
+import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
+import { 
+  fetchAllJobPosts, 
+  deleteJobPost, 
+  updateJobPost, 
+  setSearchQuery, 
+  setFilterStatus
+} from "@/lib/store/jobPostsSlice"
 import type { Job } from "@/lib/types"
 import { format } from "date-fns"
 import { MoreVertical, Eye, XCircle, Trash2 } from "lucide-react"
 
 export default function JobsPage() {
   const { toast } = useToast()
-  const [jobs, setJobs] = useState<Job[]>([])
-  const [filteredJobs, setFilteredJobs] = useState<Job[]>([])
-  const [searchQuery, setSearchQuery] = useState("")
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "closed">("all")
-  const [isLoading, setIsLoading] = useState(true)
+  const dispatch = useAppDispatch()
+  const { jobPosts, pagination, isLoading, isUpdating, isDeleting, error, searchQuery, filterStatus } = useAppSelector(
+    (state) => state.jobPosts
+  )
+  
   const [selectedJob, setSelectedJob] = useState<Job | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [formData, setFormData] = useState<Partial<Job>>({})
-  const [isSaving, setIsSaving] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
-    fetchJobs()
-  }, [])
+    dispatch(fetchAllJobPosts({ page: currentPage, limit: 10 }))
+  }, [dispatch, currentPage])
 
-  useEffect(() => {
-    let filtered = jobs.filter((job) => job.title.toLowerCase().includes(searchQuery.toLowerCase()))
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((job) => job.status === statusFilter)
-    }
+  const getPageNumbers = () => {
+    if (!pagination) return []
+    const pages: (number | 'ellipsis')[] = []
+    const totalPages = pagination.totalPages
+    const current = pagination.currentPage
 
-    setFilteredJobs(filtered)
-  }, [searchQuery, statusFilter, jobs])
-
-  const fetchJobs = async () => {
-    try {
-      const response = await fetch("/api/admin/jobs")
-      if (response.ok) {
-        const data = await response.json()
-        setJobs(data)
-        setFilteredJobs(data)
+    if (totalPages <= 7) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i)
       }
-    } catch (error) {
-      console.error("[v0] Failed to fetch jobs:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load jobs",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
+    } else {
+      if (current <= 3) {
+        for (let i = 1; i <= 4; i++) pages.push(i)
+        pages.push('ellipsis')
+        pages.push(totalPages)
+      } else if (current >= totalPages - 2) {
+        pages.push(1)
+        pages.push('ellipsis')
+        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i)
+      } else {
+        pages.push(1)
+        pages.push('ellipsis')
+        for (let i = current - 1; i <= current + 1; i++) pages.push(i)
+        pages.push('ellipsis')
+        pages.push(totalPages)
+      }
     }
+
+    return pages
+  }
+
+  // Filter jobs based on search and status
+  const filteredJobs = useMemo(() => {
+    let filtered = jobPosts.filter((job) =>
+      job.title.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+
+    if (filterStatus !== "all") {
+      filtered = filtered.filter((job) => job.status === filterStatus)
+    }
+
+    return filtered
+  }, [jobPosts, searchQuery, filterStatus])
+
+  const handleSearchChange = (value: string) => {
+    dispatch(setSearchQuery(value))
+    setCurrentPage(1)
+  }
+
+  const handleStatusFilterChange = (value: "all" | "active" | "closed") => {
+    dispatch(setFilterStatus(value))
   }
 
   const handleView = (job: Job) => {
@@ -77,18 +114,17 @@ export default function JobsPage() {
     if (!confirm(`Are you sure you want to close "${job.title}"?`)) return
 
     try {
-      const response = await fetch(`/api/admin/jobs/${job.id}/close`, {
-        method: "PATCH",
+      await dispatch(updateJobPost({ 
+        id: job.id, 
+        data: { jobStatus: "closed" as "open" | "closed" },
+        currentPage: currentPage
+      })).unwrap()
+      
+      toast({
+        title: "Success",
+        description: "Job closed successfully",
       })
-
-      if (response.ok) {
-        setJobs((prev) => prev.map((j) => (j.id === job.id ? { ...j, status: "closed" } : j)))
-        toast({
-          title: "Success",
-          description: "Job closed successfully",
-        })
-      }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
         description: "Failed to close job",
@@ -101,17 +137,12 @@ export default function JobsPage() {
     if (!confirm(`Are you sure you want to delete "${job.title}"?`)) return
 
     try {
-      const response = await fetch(`/api/admin/jobs/${job.id}`, {
-        method: "DELETE",
+      await dispatch(deleteJobPost({ id: job.id, currentPage })).unwrap()
+      
+      toast({
+        title: "Success",
+        description: "Job deleted successfully",
       })
-
-      if (response.ok) {
-        setJobs((prev) => prev.filter((j) => j.id !== job.id))
-        toast({
-          title: "Success",
-          description: "Job deleted successfully",
-        })
-      }
     } catch (error) {
       toast({
         title: "Error",
@@ -124,34 +155,40 @@ export default function JobsPage() {
   const handleUpdate = async () => {
     if (!selectedJob) return
 
-    setIsSaving(true)
     try {
-      const response = await fetch(`/api/admin/jobs/${selectedJob.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+      await dispatch(updateJobPost({
+        id: selectedJob.id,
+        data: {
+          title: formData.title,
+          description: formData.description,
+        },
+        currentPage: currentPage
+      })).unwrap()
+      
+      toast({
+        title: "Success",
+        description: "Job updated successfully",
       })
-
-      if (response.ok) {
-        const updatedJob = await response.json()
-        setJobs((prev) => prev.map((j) => (j.id === selectedJob.id ? updatedJob : j)))
-        setSelectedJob(updatedJob)
-        toast({
-          title: "Success",
-          description: "Job updated successfully",
-        })
-        setIsDetailOpen(false)
-      }
-    } catch (error) {
+      setIsDetailOpen(false)
+    } catch (error: any) {
       toast({
         title: "Error",
         description: "Failed to update job",
         variant: "destructive",
       })
-    } finally {
-      setIsSaving(false)
     }
   }
+
+  // Show error toast when there's an error
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive",
+      })
+    }
+  }, [error, toast])
 
   const columns: Column<Job>[] = [
     {
@@ -189,7 +226,7 @@ export default function JobsPage() {
       render: (item) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" disabled={isDeleting}>
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -199,12 +236,12 @@ export default function JobsPage() {
               View Details
             </DropdownMenuItem>
             {item.status === "active" && (
-              <DropdownMenuItem onClick={() => handleCloseJob(item)}>
+              <DropdownMenuItem onClick={() => handleCloseJob(item)} disabled={isUpdating}>
                 <XCircle className="mr-2 h-4 w-4" />
                 Close Job
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem onClick={() => handleDelete(item)} className="text-destructive">
+            <DropdownMenuItem onClick={() => handleDelete(item)} className="text-destructive" disabled={isDeleting}>
               <Trash2 className="mr-2 h-4 w-4" />
               Delete
             </DropdownMenuItem>
@@ -222,8 +259,12 @@ export default function JobsPage() {
             <PageHeader title="Job Management" description="Manage job postings and their status" />
 
             <div className="flex items-center gap-4">
-              <SearchBar placeholder="Search by job title..." value={searchQuery} onChange={setSearchQuery} />
-              <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+              <SearchBar 
+                placeholder="Search by job title..." 
+                value={searchQuery} 
+                onChange={handleSearchChange} 
+              />
+              <Select value={filterStatus} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-[180px] bg-white">
                   <SelectValue placeholder="Filter by status" />
                 </SelectTrigger>
@@ -239,7 +280,78 @@ export default function JobsPage() {
           {isLoading ? (
             <div className="h-64 rounded-lg bg-muted animate-pulse" />
           ) : (
-            <DataTable columns={columns} data={filteredJobs} emptyMessage="No jobs found" />
+            <>
+              <DataTable columns={columns} data={filteredJobs} emptyMessage="No jobs found" />
+              
+              {/* Pagination */}
+              {pagination && pagination.totalPages > 1 && !searchQuery && (
+                <div className="flex items-center justify-between border-t border-border pt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
+                    {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
+                    {pagination.totalItems} jobs
+                  </div>
+                  
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (pagination.currentPage > 1) {
+                              handlePageChange(pagination.currentPage - 1)
+                            }
+                          }}
+                          className={
+                            pagination.currentPage === 1
+                              ? 'pointer-events-none opacity-50'
+                              : 'cursor-pointer'
+                          }
+                        />
+                      </PaginationItem>
+                      
+                      {getPageNumbers().map((page, index) => (
+                        <PaginationItem key={index}>
+                          {page === 'ellipsis' ? (
+                            <PaginationEllipsis />
+                          ) : (
+                            <PaginationLink
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handlePageChange(page)
+                              }}
+                              isActive={page === pagination.currentPage}
+                              className="cursor-pointer"
+                            >
+                              {page}
+                            </PaginationLink>
+                          )}
+                        </PaginationItem>
+                      ))}
+                      
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            if (pagination.currentPage < pagination.totalPages) {
+                              handlePageChange(pagination.currentPage + 1)
+                            }
+                          }}
+                          className={
+                            pagination.currentPage === pagination.totalPages
+                              ? 'pointer-events-none opacity-50'
+                              : 'cursor-pointer'
+                          }
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -253,38 +365,30 @@ export default function JobsPage() {
                   id="title"
                   value={formData.title || ""}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  disabled={isUpdating}
                 />
               </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="companyName">Company</Label>
                 <Input
                   id="companyName"
                   value={formData.companyName || ""}
-                  onChange={(e) => setFormData({ ...formData, companyName: e.target.value })}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="location">Location</Label>
                 <Input
                   id="location"
                   value={formData.location || ""}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  disabled
+                  className="bg-muted"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="type">Job Type</Label>
-                <Select value={formData.type} onValueChange={(value: any) => setFormData({ ...formData, type: value })}>
-                  <SelectTrigger id="type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full-time">Full Time</SelectItem>
-                    <SelectItem value="part-time">Part Time</SelectItem>
-                    <SelectItem value="contract">Contract</SelectItem>
-                    <SelectItem value="internship">Internship</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -292,20 +396,24 @@ export default function JobsPage() {
                   value={formData.description || ""}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={5}
+                  disabled={isUpdating}
                 />
               </div>
+              
               <div className="space-y-2">
                 <Label>Posted Date</Label>
                 <p className="text-sm text-muted-foreground">
                   {format(new Date(selectedJob.postedDate), "MMMM dd, yyyy")}
                 </p>
               </div>
+              
               <div className="space-y-2">
                 <Label>Status</Label>
                 <div className="mt-1">
                   <StatusBadge status={selectedJob.status === "active"} activeLabel="Active" inactiveLabel="Closed" />
                 </div>
               </div>
+              
               {selectedJob.status === "active" && (
                 <div className="pt-2">
                   <Button
@@ -315,6 +423,7 @@ export default function JobsPage() {
                     }}
                     variant="destructive"
                     className="w-full"
+                    disabled={isUpdating}
                   >
                     <XCircle className="mr-2 h-4 w-4" />
                     Close Job
@@ -323,11 +432,11 @@ export default function JobsPage() {
               )}
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isSaving}>
+                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isUpdating}>
                   Cancel
                 </Button>
-                <Button onClick={handleUpdate} disabled={isSaving}>
-                  {isSaving ? "Saving..." : "Save Changes"}
+                <Button onClick={handleUpdate} disabled={isUpdating}>
+                  {isUpdating ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>
@@ -337,3 +446,4 @@ export default function JobsPage() {
     </AuthGuard>
   )
 }
+

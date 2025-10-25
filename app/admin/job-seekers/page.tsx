@@ -367,11 +367,11 @@ export default function JobSeekersPage() {
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isUpdating}>
+                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isLoading}>
                   Cancel
                 </Button>
-                <Button onClick={handleUpdate} disabled={isUpdating}>
-                  {isUpdating ? "Saving..." : "Save Changes"}
+                <Button onClick={handleUpdate} disabled={isLoading}>
+                  {isLoading ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
             </div>
