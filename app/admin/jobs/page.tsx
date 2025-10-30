@@ -26,7 +26,8 @@ import {
   setSearchQuery, 
   setFilterStatus
 } from "@/lib/store/jobPostsSlice"
-import type { Job } from "@/lib/types"
+import type { Job, Company } from "@/lib/types"
+import { companiesApi, transformCompany } from "@/lib/api/companies"
 import { format } from "date-fns"
 import { MoreVertical, Eye, XCircle, Trash2 } from "lucide-react"
 
@@ -41,10 +42,29 @@ export default function JobsPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [formData, setFormData] = useState<Partial<Job>>({})
   const [currentPage, setCurrentPage] = useState(1)
+  const [companies, setCompanies] = useState<Company[]>([])
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string>("all")
 
   useEffect(() => {
-    dispatch(fetchAllJobPosts({ page: currentPage, limit: 10 }))
-  }, [dispatch, currentPage])
+    dispatch(fetchAllJobPosts({ 
+      page: currentPage, 
+      limit: 10, 
+      company: selectedCompanyId !== 'all' ? selectedCompanyId : undefined 
+    }))
+  }, [dispatch, currentPage, selectedCompanyId])
+
+  // Load companies for the company filter select
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await companiesApi.getAllCompanies(1, 1000)
+        const list = res.data.jobProviders.map(transformCompany)
+        setCompanies(list)
+      } catch (e) {
+        // silently ignore for now; filter will show only "All Companies"
+      }
+    })()
+  }, [])
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page)
@@ -264,6 +284,17 @@ export default function JobsPage() {
                 value={searchQuery} 
                 onChange={handleSearchChange} 
               />
+              <Select value={selectedCompanyId} onValueChange={(value) => { setSelectedCompanyId(value); setCurrentPage(1); }}>
+                <SelectTrigger className="w-[220px] bg-white">
+                  <SelectValue placeholder="Filter by company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  {companies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={filterStatus} onValueChange={handleStatusFilterChange}>
                 <SelectTrigger className="w-[180px] bg-white">
                   <SelectValue placeholder="Filter by status" />

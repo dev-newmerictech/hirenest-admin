@@ -22,7 +22,7 @@ const navigation = [
   { name: "Job Seekers", href: "/admin/job-seekers", icon: Users },
   { name: "Companies", href: "/admin/companies", icon: Building2 },
   { name: "Jobs", href: "/admin/jobs", icon: Briefcase },
-  { name: "Packages", href: "/admin/packages", icon: Package },
+  // { name: "Packages", href: "/admin/packages", icon: Package },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ]
 

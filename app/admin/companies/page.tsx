@@ -106,13 +106,20 @@ export default function CompaniesPage() {
   }
 
   const handleVerification = async (company: Company, status: "approved" | "rejected") => {
-    // Note: Verification endpoint not provided in API list, keeping as is for now
-    // TODO: Add verification API endpoint when available
-    toast({
-      title: "Info",
-      description: "Verification API endpoint not yet configured",
-      variant: "default",
-    })
+    const isDocumentVerified = status === "approved"
+    const result = await dispatch(
+      updateCompany({
+        id: company.id,
+        data: { isDocumentVerified },
+      })
+    )
+
+    if (updateCompany.fulfilled.match(result)) {
+      toast({
+        title: "Success",
+        description: `Verification ${status} successfully`,
+      })
+    }
   }
 
   const handleDelete = async (company: Company) => {
@@ -232,26 +239,34 @@ export default function CompaniesPage() {
     {
       key: "verificationStatus",
       label: "Verification",
-      render: (item) => (
-        <Badge
-          variant={
-            item.verificationStatus === "approved"
-              ? "default"
-              : item.verificationStatus === "rejected"
-                ? "destructive"
-                : "secondary"
-          }
-          className={
-            item.verificationStatus === "approved"
-              ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-              : item.verificationStatus === "rejected"
-                ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                : ""
-          }
-        >
-          {item.verificationStatus.charAt(0).toUpperCase() + item.verificationStatus.slice(1)}
-        </Badge>
-      ),
+      render: (item) => {
+        // Use isDocumentVerified if available, otherwise fall back to verificationStatus
+        const isVerified = item.isDocumentVerified !== undefined 
+          ? item.isDocumentVerified 
+          : item.verificationStatus === "approved";
+        const status = isVerified ? "approved" : (item.verificationStatus === "rejected" ? "rejected" : "pending");
+        
+        return (
+          <Badge
+            variant={
+              status === "approved"
+                ? "default"
+                : status === "rejected"
+                  ? "destructive"
+                  : "secondary"
+            }
+            className={
+              status === "approved"
+                ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                : status === "rejected"
+                  ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                  : ""
+            }
+          >
+            {status.charAt(0).toUpperCase() + status.slice(1)}
+          </Badge>
+        );
+      },
     },
     {
       key: "actions",
@@ -268,7 +283,7 @@ export default function CompaniesPage() {
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
-            {item.verificationStatus === "pending" && (
+            {(item.verificationStatus === "pending" || item.isDocumentVerified === undefined || item.isDocumentVerified === false) && (
               <>
                 <DropdownMenuItem onClick={() => handleVerification(item, "approved")}>
                   <ShieldCheck className="mr-2 h-4 w-4" />
@@ -431,6 +446,33 @@ export default function CompaniesPage() {
                 </div>
               </div>
               <div className="space-y-2">
+                <Label>Document Verification</Label>
+                <div className="mt-1">
+                  <Badge
+                    variant={
+                      selectedCompany.isDocumentVerified === true
+                        ? "default"
+                        : selectedCompany.isDocumentVerified === false
+                          ? "destructive"
+                          : "secondary"
+                    }
+                    className={
+                      selectedCompany.isDocumentVerified === true
+                        ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                        : selectedCompany.isDocumentVerified === false
+                          ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                          : ""
+                    }
+                  >
+                    {selectedCompany.isDocumentVerified === true
+                      ? "Verified"
+                      : selectedCompany.isDocumentVerified === false
+                        ? "Rejected"
+                        : "Pending"}
+                  </Badge>
+                </div>
+              </div>
+              <div className="space-y-2">
                 <Label>Verification Status</Label>
                 <div className="mt-1">
                   <Badge
@@ -454,7 +496,7 @@ export default function CompaniesPage() {
                   </Badge>
                 </div>
               </div>
-              {selectedCompany.verificationStatus === "pending" && (
+              {(selectedCompany.verificationStatus === "pending" || selectedCompany.isDocumentVerified === undefined || selectedCompany.isDocumentVerified === false) && (
                 <div className="flex gap-2 pt-2">
                   <Button
                     onClick={() => {
