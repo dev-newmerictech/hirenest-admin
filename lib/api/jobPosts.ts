@@ -76,8 +76,10 @@ export const jobPostsApi = {
    * Get all job posts
    * GET /admin/job-posts/?page={page}&limit={limit}
    */
-  getAllJobPosts: async (page: number = 1, limit: number = 10): Promise<JobPostsListResponse> => {
-    return api.get<JobPostsListResponse>(`/admin/job-posts/?page=${page}&limit=${limit}`);
+  getAllJobPosts: async (page: number = 1, limit: number = 10, companyId?: string): Promise<JobPostsListResponse> => {
+    const params = new URLSearchParams({ page: String(page), limit: String(limit) });
+    if (companyId && companyId.trim()) params.append('company', companyId.trim());
+    return api.get<JobPostsListResponse>(`/admin/job-posts/?${params.toString()}`);
   },
 
   /**

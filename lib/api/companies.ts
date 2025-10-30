@@ -23,6 +23,12 @@ export interface CompanyDetailResponse {
 
 // Transform API response to internal format
 export function transformCompany(apiCompany: CompanyAPIResponse): Company {
+  // Update verificationStatus based on isDocumentVerified if available
+  let verificationStatus = apiCompany.verificationStatus || 'pending';
+  if (apiCompany.isDocumentVerified !== undefined) {
+    verificationStatus = apiCompany.isDocumentVerified ? 'approved' : 'rejected';
+  }
+  
   return {
     id: apiCompany._id,
     name: apiCompany.name,
@@ -31,7 +37,8 @@ export function transformCompany(apiCompany: CompanyAPIResponse): Company {
     registrationDate: apiCompany.createdAt,
     isActive: apiCompany.isActive,
     isVerified: apiCompany.isVerified || false,
-    verificationStatus: apiCompany.verificationStatus || 'pending',
+    verificationStatus,
+    isDocumentVerified: apiCompany.isDocumentVerified,
   };
 }
 
@@ -43,6 +50,7 @@ export interface UpdateCompanyRequest {
   name?: string;
   email?: string;
   industry?: string;
+  isDocumentVerified?: boolean;
 }
 
 /**

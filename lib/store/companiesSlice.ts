@@ -8,6 +8,7 @@ import {
   transformCompany 
 } from '../api/companies';
 import { Company } from '../types';
+import type { RootState } from './index';
 
 interface CompaniesState {
   companies: Company[];
@@ -120,13 +121,18 @@ export const toggleCompanyStatus = createAsyncThunk<
 // Async thunk for updating company
 export const updateCompany = createAsyncThunk<
   CompanyDetailResponse,
-  { id: string; data: { name?: string; email?: string; industry?: string } },
+  { id: string; data: { name?: string; email?: string; industry?: string; isDocumentVerified?: boolean } },
   { rejectValue: string }
 >(
   'companies/update',
-  async ({ id, data }, { rejectWithValue }) => {
+  async ({ id, data }, { rejectWithValue, dispatch, getState }) => {
     try {
       const response = await companiesApi.updateCompany(id, data);
+      // Refresh list to reflect latest data (e.g., verification changes)
+      const state = getState() as RootState;
+      const currentPage = state.companies.pagination?.currentPage || 1;
+      const itemsPerPage = state.companies.pagination?.itemsPerPage || 10;
+      dispatch(fetchAllCompanies({ page: currentPage, limit: itemsPerPage }));
       return response;
     } catch (error) {
       return rejectWithValue(

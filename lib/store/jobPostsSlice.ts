@@ -46,7 +46,7 @@ const initialState: JobPostsState = {
 // Async thunk for fetching all job posts
 export const fetchAllJobPosts = createAsyncThunk<
   JobPostsListResponse,
-  { page?: number; limit?: number } | void,
+  { page?: number; limit?: number; company?: string } | void,
   { rejectValue: string }
 >(
   'jobPosts/fetchAll',
@@ -54,7 +54,8 @@ export const fetchAllJobPosts = createAsyncThunk<
     try {
       const page = params && 'page' in params ? params.page : 1;
       const limit = params && 'limit' in params ? params.limit : 10;
-      const response = await jobPostsApi.getAllJobPosts(page, limit);
+      const company = params && 'company' in params ? params.company : undefined;
+      const response = await jobPostsApi.getAllJobPosts(page, limit, company);
       return response;
     } catch (error) {
       return rejectWithValue(

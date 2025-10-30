@@ -38,6 +38,7 @@ export interface Company {
   isActive: boolean
   isVerified: boolean
   verificationStatus: "pending" | "approved" | "rejected"
+  isDocumentVerified?: boolean
 }
 
 // API Response format from backend for companies
@@ -53,6 +54,7 @@ export interface CompanyAPIResponse {
   isActive: boolean
   isVerified?: boolean
   verificationStatus?: "pending" | "approved" | "rejected"
+  isDocumentVerified?: boolean
   createdAt: string
 }
 
