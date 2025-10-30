@@ -327,7 +327,7 @@ export default function CompaniesPage() {
       <AdminLayout>
         <div className="space-y-6">
 
-          <div className="flex items-center justify-between">
+          <div className="mt-4 sm:mt-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <PageHeader title="Companies" description="Manage company accounts and verifications" />
             <SearchBar placeholder="Search by company name..." value={searchQuery} onChange={handleSearchChange} />
           </div>
@@ -340,7 +340,7 @@ export default function CompaniesPage() {
               
               {/* Pagination */}
               {pagination && pagination.totalPages > 1 && !searchQuery && (
-                <div className="flex items-center justify-between border-t border-border pt-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4">
                   <div className="text-sm text-muted-foreground">
                     Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
                     {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}

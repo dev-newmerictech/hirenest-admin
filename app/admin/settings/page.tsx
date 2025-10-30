@@ -144,7 +144,7 @@ export default function SettingsPage() {
   return (
     <AuthGuard>
       <AdminLayout>
-        <div className="space-y-6">
+        <div className="space-y-6 mt-4 sm:mt-0">
           <PageHeader title="Invite Team Members" description="Add new team members by sending them an email invitation." />
 
           {/* Invite form */}
