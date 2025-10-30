@@ -18,7 +18,7 @@ interface DetailDrawerProps {
 export function DetailDrawer({ open, onOpenChange, title, children }: DetailDrawerProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-[50vw] sm:max-w-none p-0">
+      <SheetContent side="right" className="w-screen max-w-none sm:w-[50vw] sm:max-w-[50vw] p-0">
         <SheetHeader className="px-6 py-4 border-b border-border">
           <SheetTitle className="text-xl font-semibold">{title}</SheetTitle>
         </SheetHeader>

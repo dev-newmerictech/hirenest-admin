@@ -26,7 +26,7 @@ export function DataTable<T extends { id: string }>({
   emptyMessage = "No data available",
 }: DataTableProps<T>) {
   return (
-    <div className="rounded-md border border-border bg-white">
+    <div className="rounded-md border border-border bg-white overflow-x-auto">
       <Table>
         <TableHeader>
           <TableRow>

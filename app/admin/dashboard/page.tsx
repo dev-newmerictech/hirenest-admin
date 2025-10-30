@@ -31,7 +31,7 @@ export default function DashboardPage() {
   return (
     <AuthGuard>
       <AdminLayout>
-        <div className="space-y-8">
+        <div className="space-y-8 mt-4 sm:mt-0">
           <PageHeader title="Dashboard" description="Overview of your job listing platform" />
 
           {isLoading ? (
@@ -41,7 +41,7 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
               <StatCard
                 title="All User"
                 value={totalUsers}
