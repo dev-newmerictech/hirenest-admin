@@ -35,7 +35,7 @@ export async function apiClient<T = any>(
     }
   }
 
-  const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `https://api-dev.hirenest.ai${endpoint}`;
 
   try {
     const response = await fetch(url, config);

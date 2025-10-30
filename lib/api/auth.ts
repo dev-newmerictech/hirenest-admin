@@ -19,7 +19,7 @@ export interface LoginResponse {
 
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await fetch(`${API_URL}/admin/auth/login`, {
+    const response = await fetch(`https://api-dev.hirenest.ai/admin/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
