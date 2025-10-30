@@ -3,6 +3,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
 import { PageHeader } from "@/components/admin/page-header"
@@ -36,11 +37,12 @@ import {
 } from "@/lib/store/companiesSlice"
 import type { Company } from "@/lib/types"
 import { format } from "date-fns"
-import { MoreVertical, Eye, Ban, CheckCircle, Trash2, ShieldCheck, ShieldX } from "lucide-react"
+import { MoreVertical, Eye, Ban, CheckCircle, Trash2, ShieldCheck, ShieldX, User } from "lucide-react"
 
 export default function CompaniesPage() {
   const { toast } = useToast()
   const dispatch = useAppDispatch()
+  const router = useRouter()
   
   // Redux state
   const { companies, pagination, isLoading, isUpdating, isDeleting, error, searchQuery } = useAppSelector(
@@ -282,6 +284,10 @@ export default function CompaniesPage() {
             <DropdownMenuItem onClick={() => handleView(item)}>
               <Eye className="mr-2 h-4 w-4" />
               View Details
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => router.push(`/admin/companies/${item.id}`)}>
+              <User className="mr-2 h-4 w-4" />
+              View Profile
             </DropdownMenuItem>
             {(item.verificationStatus === "pending" || item.isDocumentVerified === undefined || item.isDocumentVerified === false) && (
               <>

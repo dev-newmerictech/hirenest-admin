@@ -1,200 +1,205 @@
-// Platform Settings page
-
 "use client"
 
-import { useEffect, useState } from "react"
+import { useMemo, useState } from "react"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
 import { PageHeader } from "@/components/admin/page-header"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Switch } from "@/components/ui/switch"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/hooks/use-toast"
-import type { PlatformSettings } from "@/lib/types"
-import { Save } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTable, type Column } from "@/components/admin/data-table"
+import { Check, MoreVertical, Trash2 } from "lucide-react"
+
+type Role = "Licensed Seat (Full Access)" | "Hiring Manager (Limited)" | "Viewer"
+
+interface TeamMember {
+  id: string
+  name: string
+  email: string
+  role: Role
+  isYou?: boolean
+}
 
 export default function SettingsPage() {
-  const { toast } = useToast()
-  const [settings, setSettings] = useState<PlatformSettings>({
-    platformName: "",
-    platformEmail: "",
-    defaultJobExpiryDays: 30,
-    requireEmailVerification: true,
-  })
-  const [isLoading, setIsLoading] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState("")
+  const [emailError, setEmailError] = useState<string | null>(null)
+  const [emailTouched, setEmailTouched] = useState(false)
+  const [role, setRole] = useState<Role>("Licensed Seat (Full Access)")
+  const [team, setTeam] = useState<TeamMember[]>([
+    {
+      id: "you",
+      name: "Admin (You)",
+      email: typeof window !== "undefined" ? (JSON.parse(localStorage.getItem("user") || "{}")?.email || "-") : "-",
+      role: "Licensed Seat (Full Access)",
+      isYou: true,
+    },
+  ])
+  const [pending, setPending] = useState<{ email: string; role: Role }[]>([])
+  const [query, setQuery] = useState("")
 
-  useEffect(() => {
-    fetchSettings()
-  }, [])
+  const filteredTeam = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return team
+    return team.filter((m) => m.name.toLowerCase().includes(q) || m.email.toLowerCase().includes(q))
+  }, [query, team])
 
-  const fetchSettings = async () => {
-    try {
-      const response = await fetch("/api/admin/settings")
-      if (response.ok) {
-        const data = await response.json()
-        setSettings(data)
-      }
-    } catch (error) {
-      console.error("[v0] Failed to fetch settings:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load settings",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLoading(false)
-    }
+  type TeamRow = TeamMember
+  const teamColumns: Column<TeamRow>[] = [
+    { key: "name", label: "Name" },
+    { key: "email", label: "Email" },
+    {
+      key: "role",
+      label: "Role",
+      render: (m) => (
+        <Select
+          value={m.role}
+          onValueChange={(v) =>
+            setTeam((prev) => prev.map((tm) => (tm.id === m.id ? { ...tm, role: v as Role } : tm)))
+          }
+        >
+          <SelectTrigger className="bg-white min-w-[240px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Licensed Seat (Full Access)">Licensed Seat (Full Access)</SelectItem>
+            <SelectItem value="Hiring Manager (Limited)">Hiring Manager (Limited)</SelectItem>
+            <SelectItem value="Viewer">Viewer</SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (m) => (
+        <div className="flex justify-start">
+          <Trash2 className="ml-4 h-4 w-4" />
+        </div>
+      ),
+    },
+  ]
+
+  interface PendingRow { id: string; email: string; role: Role }
+  const pendingRows: PendingRow[] = pending.map((p, i) => ({ id: `p-${i}`, email: p.email, role: p.role }))
+  const pendingColumns: Column<PendingRow>[] = [
+    { key: "name", label: "Name" },
+    { key: "email", label: "Email" },
+    {
+      key: "role",
+      label: "Role",
+      render: (row) => (
+        <Select
+          value={row.role}
+          onValueChange={(v) =>
+            setPending((prev) => prev.map((r, idx) => `p-${idx}` === row.id ? { ...r, role: v as Role } : r))
+          }
+        >
+          <SelectTrigger className="bg-white min-w-[240px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="Licensed Seat (Full Access)">Licensed Seat (Full Access)</SelectItem>
+            <SelectItem value="Hiring Manager (Limited)">Hiring Manager (Limited)</SelectItem>
+            <SelectItem value="Viewer">Viewer</SelectItem>
+          </SelectContent>
+        </Select>
+      ),
+    },
+    {
+      key: "actions",
+      label: "Actions",
+      render: (row) => (
+        <div className="flex justify-start">
+          <Trash2 className="ml-4 h-4 w-4" />
+        </div>
+      ),
+    },
+  ]
+
+  const isValidEmail = (val: string) => {
+    const value = val.trim()
+    if (!value) return "Email is required"
+    // Basic RFC 5322 compliant-enough email regex for UI validation
+    const re = /^(?:[a-zA-Z0-9_'^&\-\+])+(?:\.(?:[a-zA-Z0-9_'^&\-\+])+)*@(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}$/
+    if (!re.test(value)) return "Enter a valid email address"
+    // Duplicate checks against current team and pending invites
+    const inTeam = team.some((m) => m.email.toLowerCase() === value.toLowerCase())
+    if (inTeam) return "Email already belongs to a team member"
+    const inPending = pending.some((p) => p.email.toLowerCase() === value.toLowerCase())
+    if (inPending) return "An invitation has already been sent to this email"
+    return null
   }
 
-  const handleSave = async () => {
-    setIsSaving(true)
-    try {
-      const response = await fetch("/api/admin/settings", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(settings),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Settings saved successfully",
-        })
-      } else {
-        throw new Error("Failed to save settings")
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save settings",
-        variant: "destructive",
-      })
-    } finally {
-      setIsSaving(false)
-    }
-  }
-
-  const handleChange = (field: keyof PlatformSettings, value: string | number | boolean) => {
-    setSettings((prev) => ({ ...prev, [field]: value }))
-  }
-
-  if (isLoading) {
-    return (
-      <AuthGuard>
-        <AdminLayout>
-          <div className="space-y-6">
-            <PageHeader title="Settings" description="Configure platform settings" />
-            <div className="h-96 rounded-lg bg-muted animate-pulse" />
-          </div>
-        </AdminLayout>
-      </AuthGuard>
-    )
+  const sendInvite = () => {
+    const err = isValidEmail(inviteEmail)
+    setEmailTouched(true)
+    setEmailError(err)
+    if (err) return
+    setPending((p) => [{ email: inviteEmail.trim(), role }, ...p])
+    setInviteEmail("")
+    setEmailTouched(false)
+    setEmailError(null)
   }
 
   return (
     <AuthGuard>
       <AdminLayout>
         <div className="space-y-6">
-          <PageHeader
-            title="Settings"
-            description="Configure platform settings"
-            action={
-              <Button onClick={handleSave} disabled={isSaving}>
-                <Save className="mr-2 h-4 w-4" />
-                {isSaving ? "Saving..." : "Save Changes"}
-              </Button>
-            }
-          />
+          <PageHeader title="Invite Team Members" description="Add new team members by sending them an email invitation." />
 
-          <div className="grid gap-6">
-            {/* General Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-foreground">General Settings</CardTitle>
-                <CardDescription>Basic platform configuration</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="platformName" className="text-foreground">
-                    Platform Name
-                  </Label>
-                  <Input
-                    id="platformName"
-                    value={settings.platformName}
-                    onChange={(e) => handleChange("platformName", e.target.value)}
-                    placeholder="Enter platform name"
-                  />
-                  <p className="text-xs text-muted-foreground">The name of your job listing platform</p>
+          {/* Invite form */}
+          <Card className="p-6 shadow-none  max-w-4xl">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <Input
+                placeholder="jane@example.com"
+                value={inviteEmail}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setInviteEmail(v)
+                  if (emailTouched) setEmailError(isValidEmail(v))
+                }}
+                onBlur={() => {
+                  setEmailTouched(true)
+                  setEmailError(isValidEmail(inviteEmail))
+                }}
+                aria-invalid={!!emailError}
+                aria-describedby={emailError ? "invite-email-error" : undefined}
+                className="lg:flex-1"
+              />
+              {emailError && (
+                <div id="invite-email-error" className="text-sm text-destructive lg:ml-0">
+                  {emailError}
                 </div>
+              )}
+              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+                <SelectTrigger className="w-full lg:w-[280px] bg-white">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Licensed Seat (Full Access)">Licensed Seat (Full Access)</SelectItem>
+                  <SelectItem value="Hiring Manager (Limited)">Hiring Manager (Limited)</SelectItem>
+                  <SelectItem value="Viewer">Viewer</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button onClick={sendInvite} disabled={!!isValidEmail(inviteEmail)} className="w-full lg:w-auto">Send Invite</Button>
+            </div>
+          </Card>
 
-                <div className="space-y-2">
-                  <Label htmlFor="platformEmail" className="text-foreground">
-                    Platform Email
-                  </Label>
-                  <Input
-                    id="platformEmail"
-                    type="email"
-                    value={settings.platformEmail}
-                    onChange={(e) => handleChange("platformEmail", e.target.value)}
-                    placeholder="contact@example.com"
-                  />
-                  <p className="text-xs text-muted-foreground">Contact email for platform communications</p>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Tabs */}
+          <Tabs defaultValue="team" className="w-full  max-w-4xl">
+            <TabsList>
+              <TabsTrigger value="team">Your Team</TabsTrigger>
+              <TabsTrigger value="pending">Pending Invitations</TabsTrigger>
+            </TabsList>
 
-            {/* Job Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-foreground">Job Settings</CardTitle>
-                <CardDescription>Configure job posting behavior</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="jobExpiryDays" className="text-foreground">
-                    Default Job Expiry Days
-                  </Label>
-                  <Input
-                    id="jobExpiryDays"
-                    type="number"
-                    min="1"
-                    max="365"
-                    value={settings.defaultJobExpiryDays}
-                    onChange={(e) => handleChange("defaultJobExpiryDays", Number.parseInt(e.target.value) || 30)}
-                  />
-                  <p className="text-xs text-muted-foreground">Number of days before a job posting expires (1-365)</p>
-                </div>
-              </CardContent>
-            </Card>
+            <TabsContent value="team" className="mt-4">
+              <DataTable columns={teamColumns} data={filteredTeam} emptyMessage="No team members" />
+            </TabsContent>
 
-            {/* User Settings */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-foreground">User Settings</CardTitle>
-                <CardDescription>Configure user account behavior</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="emailVerification" className="text-foreground">
-                      Require Email Verification
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Users must verify their email before accessing the platform
-                    </p>
-                  </div>
-                  <Switch
-                    id="emailVerification"
-                    checked={settings.requireEmailVerification}
-                    onCheckedChange={(checked) => handleChange("requireEmailVerification", checked)}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+            <TabsContent value="pending" className="mt-4">
+              <DataTable columns={pendingColumns} data={pendingRows} emptyMessage="No pending invitations" />
+            </TabsContent>
+          </Tabs>
         </div>
       </AdminLayout>
     </AuthGuard>

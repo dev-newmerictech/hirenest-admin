@@ -3,6 +3,7 @@
 "use client"
 
 import { useEffect, useState, useMemo } from "react"
+import { useRouter } from "next/navigation"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
 import { PageHeader } from "@/components/admin/page-header"
@@ -39,6 +40,7 @@ import { format } from "date-fns"
 export default function JobSeekersPage() {
   const { toast } = useToast()
   const dispatch = useAppDispatch()
+  const router = useRouter()
   
   // Redux state
   const { jobSeekers, pagination, isLoading, isUpdating, isDeleting, error, searchQuery } = useAppSelector(
@@ -223,6 +225,7 @@ export default function JobSeekersPage() {
       render: (item) => (
         <ActionButtons
           onView={() => handleView(item)}
+          onViewProfile={() => router.push(`/admin/job-seekers/${item.id}`)}
           onActivate={() => handleToggleStatus(item)}
           onDeactivate={() => handleToggleStatus(item)}
           onDelete={() => handleDelete(item)}
