@@ -1,6 +1,6 @@
 // API client with authentication support
 
-const API_URL = 'https://api-dev.hirenest.ai';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
