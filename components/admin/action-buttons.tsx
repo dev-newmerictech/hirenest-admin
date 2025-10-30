@@ -4,17 +4,18 @@
 
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { MoreVertical, Eye, Ban, CheckCircle, Trash2 } from "lucide-react"
+import { MoreVertical, Eye, Ban, CheckCircle, Trash2, User } from "lucide-react"
 
 interface ActionButtonsProps {
   onView?: () => void
+  onViewProfile?: () => void
   onActivate?: () => void
   onDeactivate?: () => void
   onDelete?: () => void
   isActive?: boolean
 }
 
-export function ActionButtons({ onView, onActivate, onDeactivate, onDelete, isActive }: ActionButtonsProps) {
+export function ActionButtons({ onView, onViewProfile, onActivate, onDeactivate, onDelete, isActive }: ActionButtonsProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -27,6 +28,12 @@ export function ActionButtons({ onView, onActivate, onDeactivate, onDelete, isAc
           <DropdownMenuItem onClick={onView}>
             <Eye className="mr-2 h-4 w-4" />
             View Details
+          </DropdownMenuItem>
+        )}
+        {onViewProfile && (
+          <DropdownMenuItem onClick={onViewProfile}>
+            <User className="mr-2 h-4 w-4" />
+            View Profile
           </DropdownMenuItem>
         )}
         {isActive !== undefined && (
