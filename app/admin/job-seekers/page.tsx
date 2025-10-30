@@ -243,7 +243,7 @@ export default function JobSeekersPage() {
           <div className="mt-4 sm:mt-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <PageHeader title="Job Seekers" description="Manage job seeker accounts" />
             <SearchBar 
-              placeholder="Search by name, email or phone..." 
+              placeholder="Search by name..." 
               value={searchQuery} 
               onChange={handleSearchChange} 
             />

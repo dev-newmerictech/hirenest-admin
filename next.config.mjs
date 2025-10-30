@@ -9,6 +9,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Use custom directory for Next.js build output instead of default .next
+  distDir: 'build',
 }
 
 export default nextConfig
