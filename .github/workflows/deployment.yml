@@ -1,0 +1,89 @@
+name: Deploy to AWS ECS
+on:
+    push:
+        branches:
+            - production
+
+env:
+    AWS_ACCOUNT_ID: 235494782311
+    AWS_REGION: us-east-1
+    ECR_REPOSITORY: 235494782311.dkr.ecr.us-east-1.amazonaws.com/admin-panel-prod
+    ECS_CLUSTER: ecs-prod-hirenest
+    ECS_SERVICE: td-admin-panel-prod-service
+    ECS_TASK_DEFINITION: td-admin-panel-prod
+
+jobs:
+    build:
+        name: Build and push to AWS ECR
+        runs-on: ubuntu-latest
+        outputs:
+            image_tag: ${{ steps.build-image.outputs.image_tag }}
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v3
+
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Install dependencies
+              run: sudo apt-get install -y jq
+
+            - name: Login to Amazon ECR
+              id: login-ecr
+              run: |
+                  aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin $ECR_REPOSITORY
+
+            - name: Build, tag, and push Docker image to Amazon ECR
+              id: build-image
+              run: |
+                  IMAGE_TAG=$(date +%Y%m%d%H%M%S)
+                  ECR_URI="${{ env.ECR_REPOSITORY }}"
+                  docker build -t $ECR_URI:$IMAGE_TAG .
+                  docker tag $ECR_URI:$IMAGE_TAG $ECR_URI:latest
+                  docker push $ECR_URI:$IMAGE_TAG
+                  docker push $ECR_URI:latest
+                  echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+    deploy:
+        name: Deploy to AWS ECS
+        runs-on: ubuntu-latest
+        needs: build
+        env:
+            IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+
+        steps:
+            - name: Configure AWS credentials
+              uses: aws-actions/configure-aws-credentials@v2
+              with:
+                  aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+                  aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+                  aws-region: ${{ env.AWS_REGION }}
+
+            - name: Retrieve and Update ECS Task Definition
+              id: task-def
+              run: |
+                  TASK_DEF_JSON=$(aws ecs describe-task-definition --task-definition $ECS_TASK_DEFINITION --query taskDefinition || echo "ERROR")
+                  if [[ "$TASK_DEF_JSON" == "ERROR" ]]; then
+                    echo "Failed to retrieve task definition"
+                    exit 1
+                  fi
+
+                  CLEAN_TASK_DEF=$(echo "$TASK_DEF_JSON" | jq 'del(.status, .taskDefinitionArn, .revision, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)')
+                  NEW_TASK_DEF=$(echo "$CLEAN_TASK_DEF" | jq --arg IMAGE_URI "${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}" '.containerDefinitions[0].image = $IMAGE_URI')
+                  echo "$NEW_TASK_DEF" > new-task-def.json
+
+                  NEW_TASK_REVISION=$(aws ecs register-task-definition --cli-input-json file://new-task-def.json --query taskDefinition.revision --output text)
+                  echo "NEW_TASK_REVISION=$NEW_TASK_REVISION" >> $GITHUB_ENV
+
+            - name: Deploy to ECS
+              run: |
+                  aws ecs update-service \
+                    --cluster $ECS_CLUSTER \
+                    --service $ECS_SERVICE \
+                    --task-definition $ECS_TASK_DEFINITION:$NEW_TASK_REVISION \
+                    --force-new-deployment
