@@ -2,7 +2,7 @@ name: Deploy to AWS ECS
 on:
     push:
         branches:
-            - production
+            - prod
 
 env:
     AWS_ACCOUNT_ID: 235494782311
