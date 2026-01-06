@@ -1,6 +1,17 @@
 // Authentication API service
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+let API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+
+if (API_URL === undefined) {
+  if (typeof window !== 'undefined' && window.location.origin === 'https://admin-prod.hirenest.ai') {
+    API_URL = 'https://api-prod.hirenest.ai';
+  } else {
+    API_URL = 'https://api-dev.hirenest.ai';
+  }
+}
+
+
 
 export interface LoginRequest {
   email: string;
