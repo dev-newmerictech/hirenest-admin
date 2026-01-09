@@ -4,8 +4,8 @@ let API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 
 if (API_URL === undefined) {
-  if (typeof window !== 'undefined' && window.location.origin === 'https://admin-prod.hirenest.ai') {
-    API_URL = 'https://api-prod.hirenest.ai';
+  if (typeof window !== 'undefined' && window.location.origin === 'https://admin.hirenest.ai') {
+    API_URL = 'https://api.hirenest.ai';
   } else {
     API_URL = 'https://api-dev.hirenest.ai';
   }
