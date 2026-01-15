@@ -161,3 +161,101 @@ export interface Package {
 export interface PackageWithFeatures extends Package {
   featureDetails: Feature[]
 }
+
+// Subscription Plan Types
+export interface SubscriptionPlanLimits {
+  resumeBuilds?: number
+  freeInterviews?: number
+  linkedinRequiredAfter?: number
+}
+
+export interface SubscriptionPlan {
+  _id: string
+  name: string
+  type: "seeker" | "provider"
+  price: number
+  billingCycle: "monthly" | "yearly" | "lifetime"
+  credits: number
+  features: string[]
+  limits: SubscriptionPlanLimits
+  isActive: boolean
+  isDefault: boolean
+  priority: number
+  description?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreditCostConfig {
+  _id: string
+  actionType: string
+  creditCost: number
+  isActive: boolean
+  description: string
+  category: "interview" | "feature" | "boost"
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Subscription {
+  _id: string
+  userId: string
+  profileId: string
+  planId: string | SubscriptionPlan
+  status: "active" | "expired" | "cancelled" | "trial" | "free"
+  credits: {
+    planCredits: number
+    addOnCredits: number
+    usedCredits: number
+  }
+  billingCycle: {
+    startDate: string
+    endDate: string
+  }
+  linkedinUrl?: string
+  customPlanOverride?: {
+    credits?: number
+    features?: string[]
+    limits?: SubscriptionPlanLimits
+  }
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SubscriptionWithProfile extends Subscription {
+  profile?: {
+    name: string
+    email: string
+    type: string
+  }
+  plan?: SubscriptionPlan
+}
+
+export interface CreditTransaction {
+  _id: string
+  subscriptionId: string
+  profileId: string
+  transactionType: "debit" | "credit" | "refund" | "expired" | "addon" | "plan_reset"
+  actionType: string
+  creditsAmount: number
+  balanceBefore: number
+  balanceAfter: number
+  description?: string
+  createdAt: string
+}
+
+export interface SubscriptionAnalytics {
+  overview: {
+    totalSubscriptions: number
+    activeSubscriptions: number
+    seekerSubscriptions: number
+    providerSubscriptions: number
+    totalCreditsConsumed: number
+  }
+  planDistribution: Array<{
+    planName: string
+    planType: string
+    count: number
+  }>
+  recentTransactions: CreditTransaction[]
+}

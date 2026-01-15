@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
   Dialog,
   DialogContent,
@@ -20,55 +21,70 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Edit, Trash2, Check } from "lucide-react"
-import type { Package, Feature, PackageWithFeatures } from "@/lib/types"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { Plus, Edit, Trash2, Check, Users, Briefcase, CreditCard, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
+import type { SubscriptionPlan, SubscriptionWithProfile } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+
 export default function PackagesPage() {
-  const [packages, setPackages] = useState<PackageWithFeatures[]>([])
-  const [features, setFeatures] = useState<Feature[]>([])
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([])
   const [loading, setLoading] = useState(true)
-  const [isPackageDialogOpen, setIsPackageDialogOpen] = useState(false)
-  const [isFeatureDialogOpen, setIsFeatureDialogOpen] = useState(false)
-  const [editingPackage, setEditingPackage] = useState<Package | null>(null)
-  const [editingFeature, setEditingFeature] = useState<Feature | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
+  const [activeTab, setActiveTab] = useState<"all" | "seeker" | "provider">("all")
   const { toast } = useToast()
 
-  // Package form state
-  const [packageForm, setPackageForm] = useState({
+  // Subscriber view state
+  const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set())
+  const [planSubscribers, setPlanSubscribers] = useState<Record<string, SubscriptionWithProfile[]>>({})
+  const [loadingSubscribers, setLoadingSubscribers] = useState<Record<string, boolean>>({})
+
+  // Plan form state
+  const [planForm, setPlanForm] = useState({
     name: "",
+    type: "provider" as "seeker" | "provider",
     description: "",
     price: 0,
     billingCycle: "monthly" as "monthly" | "yearly" | "lifetime",
-    isActive: true,
+    credits: 0,
     features: [] as string[],
-    maxJobPostings: 0,
-    maxApplications: 0,
+    limits: {
+      resumeBuilds: 3,
+      freeInterviews: 5,
+      linkedinRequiredAfter: 2,
+    },
+    isActive: true,
+    isDefault: false,
     priority: 0,
   })
 
-  // Feature form state
-  const [featureForm, setFeatureForm] = useState({
-    name: "",
-    description: "",
-    category: "core" as "core" | "advanced" | "premium" | "enterprise",
-  })
+  const [newFeature, setNewFeature] = useState("")
 
   useEffect(() => {
-    fetchData()
+    fetchPlans()
   }, [])
 
-  const fetchData = async () => {
+  const fetchPlans = async () => {
     try {
-      const [packagesRes, featuresRes] = await Promise.all([fetch("/api/admin/packages"), fetch("/api/admin/features")])
-      const packagesData = await packagesRes.json()
-      const featuresData = await featuresRes.json()
-      setPackages(packagesData)
-      setFeatures(featuresData)
+      const response = await fetch(`${API_BASE_URL}/admin/subscription/plans`)
+      const data = await response.json()
+      if (data.success) {
+        setPlans(data.data)
+      }
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to load data",
+        description: "Failed to load plans",
         variant: "destructive",
       })
     } finally {
@@ -76,169 +92,183 @@ export default function PackagesPage() {
     }
   }
 
-  const handleCreatePackage = () => {
-    setEditingPackage(null)
-    setPackageForm({
+  const handleCreatePlan = () => {
+    setEditingPlan(null)
+    setPlanForm({
       name: "",
+      type: "provider",
       description: "",
       price: 0,
       billingCycle: "monthly",
-      isActive: true,
+      credits: 0,
       features: [],
-      maxJobPostings: 0,
-      maxApplications: 0,
+      limits: {
+        resumeBuilds: 3,
+        freeInterviews: 5,
+        linkedinRequiredAfter: 2,
+      },
+      isActive: true,
+      isDefault: false,
       priority: 0,
     })
-    setIsPackageDialogOpen(true)
+    setIsDialogOpen(true)
   }
 
-  const handleEditPackage = (pkg: Package) => {
-    setEditingPackage(pkg)
-    setPackageForm({
-      name: pkg.name,
-      description: pkg.description,
-      price: pkg.price,
-      billingCycle: pkg.billingCycle,
-      isActive: pkg.isActive,
-      features: pkg.features,
-      maxJobPostings: pkg.maxJobPostings,
-      maxApplications: pkg.maxApplications,
-      priority: pkg.priority,
+  const handleEditPlan = (plan: SubscriptionPlan) => {
+    setEditingPlan(plan)
+    setPlanForm({
+      name: plan.name,
+      type: plan.type,
+      description: plan.description || "",
+      price: plan.price,
+      billingCycle: plan.billingCycle,
+      credits: plan.credits,
+      features: plan.features || [],
+      limits: {
+        resumeBuilds: plan.limits?.resumeBuilds || 3,
+        freeInterviews: plan.limits?.freeInterviews || 5,
+        linkedinRequiredAfter: plan.limits?.linkedinRequiredAfter || 2,
+      },
+      isActive: plan.isActive,
+      isDefault: plan.isDefault,
+      priority: plan.priority,
     })
-    setIsPackageDialogOpen(true)
+    setIsDialogOpen(true)
   }
 
-  const handleSavePackage = async () => {
+  const handleSavePlan = async () => {
     try {
-      const url = editingPackage ? `/api/admin/packages/${editingPackage.id}` : "/api/admin/packages"
-      const method = editingPackage ? "PUT" : "POST"
+      const url = editingPlan
+        ? `${API_BASE_URL}/admin/subscription/plans/${editingPlan._id}`
+        : `${API_BASE_URL}/admin/subscription/plans`
+      const method = editingPlan ? "PUT" : "POST"
 
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(packageForm),
+        body: JSON.stringify(planForm),
       })
 
-      if (response.ok) {
+      const data = await response.json()
+
+      if (data.success) {
         toast({
           title: "Success",
-          description: `Package ${editingPackage ? "updated" : "created"} successfully`,
+          description: `Plan ${editingPlan ? "updated" : "created"} successfully`,
         })
-        setIsPackageDialogOpen(false)
-        fetchData()
+        setIsDialogOpen(false)
+        fetchPlans()
+      } else {
+        throw new Error(data.message)
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save package",
+        description: error.message || "Failed to save plan",
         variant: "destructive",
       })
     }
   }
 
-  const handleDeletePackage = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this package?")) return
+  const handleDeletePlan = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this plan?")) return
 
     try {
-      const response = await fetch(`/api/admin/packages/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/admin/subscription/plans/${id}`, {
         method: "DELETE",
       })
 
-      if (response.ok) {
+      const data = await response.json()
+
+      if (data.success) {
         toast({
           title: "Success",
-          description: "Package deleted successfully",
+          description: "Plan deleted successfully",
         })
-        fetchData()
+        fetchPlans()
+      } else {
+        throw new Error(data.message)
       }
-    } catch (error) {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to delete package",
+        description: error.message || "Failed to delete plan",
         variant: "destructive",
       })
     }
   }
 
-  const handleCreateFeature = () => {
-    setEditingFeature(null)
-    setFeatureForm({
-      name: "",
-      description: "",
-      category: "core",
+  const addFeature = () => {
+    if (newFeature.trim() && !planForm.features.includes(newFeature.trim())) {
+      setPlanForm({
+        ...planForm,
+        features: [...planForm.features, newFeature.trim()],
+      })
+      setNewFeature("")
+    }
+  }
+
+  const removeFeature = (feature: string) => {
+    setPlanForm({
+      ...planForm,
+      features: planForm.features.filter((f) => f !== feature),
     })
-    setIsFeatureDialogOpen(true)
   }
 
-  const handleEditFeature = (feature: Feature) => {
-    setEditingFeature(feature)
-    setFeatureForm({
-      name: feature.name,
-      description: feature.description,
-      category: feature.category,
-    })
-    setIsFeatureDialogOpen(true)
-  }
+  const filteredPlans = plans.filter((plan) => {
+    if (activeTab === "all") return true
+    return plan.type === activeTab
+  })
 
-  const handleSaveFeature = async () => {
+  // Fetch subscribers for a specific plan
+  const fetchPlanSubscribers = async (planId: string) => {
+    if (planSubscribers[planId]) return // Already fetched
+
+    setLoadingSubscribers((prev) => ({ ...prev, [planId]: true }))
     try {
-      const url = editingFeature ? `/api/admin/features/${editingFeature.id}` : "/api/admin/features"
-      const method = editingFeature ? "PUT" : "POST"
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(featureForm),
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: `Feature ${editingFeature ? "updated" : "created"} successfully`,
-        })
-        setIsFeatureDialogOpen(false)
-        fetchData()
+      const response = await fetch(
+        `${API_BASE_URL}/admin/subscription/subscriptions?planId=${planId}&limit=50`
+      )
+      const data = await response.json()
+      if (data.success) {
+        setPlanSubscribers((prev) => ({ ...prev, [planId]: data.data.subscriptions }))
       }
     } catch (error) {
+      console.error("Failed to fetch subscribers:", error)
       toast({
         title: "Error",
-        description: "Failed to save feature",
+        description: "Failed to load subscribers",
         variant: "destructive",
       })
+    } finally {
+      setLoadingSubscribers((prev) => ({ ...prev, [planId]: false }))
     }
   }
 
-  const handleDeleteFeature = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this feature?")) return
-
-    try {
-      const response = await fetch(`/api/admin/features/${id}`, {
-        method: "DELETE",
-      })
-
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Feature deleted successfully",
-        })
-        fetchData()
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete feature",
-        variant: "destructive",
-      })
+  // Toggle plan expansion
+  const togglePlanExpanded = (planId: string) => {
+    const newExpanded = new Set(expandedPlans)
+    if (newExpanded.has(planId)) {
+      newExpanded.delete(planId)
+    } else {
+      newExpanded.add(planId)
+      fetchPlanSubscribers(planId)
     }
+    setExpandedPlans(newExpanded)
   }
 
-  const toggleFeatureInPackage = (featureId: string) => {
-    setPackageForm((prev) => ({
-      ...prev,
-      features: prev.features.includes(featureId)
-        ? prev.features.filter((id) => id !== featureId)
-        : [...prev.features, featureId],
-    }))
+  // Calculate available credits for a subscription
+  const getAvailableCredits = (sub: SubscriptionWithProfile) => {
+    return sub.credits.planCredits + sub.credits.addOnCredits - sub.credits.usedCredits
+  }
+
+  // Status color mapping
+  const STATUS_COLORS: Record<string, string> = {
+    active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+    trial: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+    free: "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200",
+    expired: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+    cancelled: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   }
 
   if (loading) {
@@ -257,161 +287,325 @@ export default function PackagesPage() {
     <AuthGuard>
       <AdminLayout>
         <div className="space-y-6">
-          <PageHeader title="Package & Feature Management" description="Manage pricing packages and feature flags" />
+          <PageHeader
+            title="Subscription Plans"
+            description="Manage subscription plans for job seekers and providers"
+          />
 
-          {/* Features Section */}
-          <div className="space-y-4">
+          {/* Tabs for filtering */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)}>
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-foreground">Features</h2>
-              <Button onClick={handleCreateFeature}>
+              <TabsList>
+                <TabsTrigger value="all">All Plans</TabsTrigger>
+                <TabsTrigger value="seeker">
+                  <Users className="mr-2 h-4 w-4" />
+                  Seeker Plans
+                </TabsTrigger>
+                <TabsTrigger value="provider">
+                  <Briefcase className="mr-2 h-4 w-4" />
+                  Provider Plans
+                </TabsTrigger>
+              </TabsList>
+              <Button onClick={handleCreatePlan}>
                 <Plus className="mr-2 h-4 w-4" />
-                Add Feature
+                Add Plan
               </Button>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {features.map((feature) => (
-                <Card key={feature.id} className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-foreground">{feature.name}</h3>
-                      <p className="mt-1 text-sm text-muted-foreground">{feature.description}</p>
-                      <Badge variant="outline" className="mt-2">
-                        {feature.category}
-                      </Badge>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEditFeature(feature)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteFeature(feature.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-
-          {/* Packages Section */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-foreground">Packages</h2>
-              <Button onClick={handleCreatePackage}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Package
-              </Button>
-            </div>
-
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {packages
-                .sort((a, b) => a.priority - b.priority)
-                .map((pkg) => (
-                  <Card key={pkg.id} className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <h3 className="text-xl font-bold text-foreground">{pkg.name}</h3>
-                          <p className="mt-1 text-sm text-muted-foreground">{pkg.description}</p>
-                        </div>
-                        <Badge variant={pkg.isActive ? "default" : "secondary"}>
-                          {pkg.isActive ? "Active" : "Inactive"}
-                        </Badge>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="text-3xl font-bold text-foreground">
-                          ${pkg.price}
-                          <span className="text-sm font-normal text-muted-foreground">/{pkg.billingCycle}</span>
-                        </div>
-
-                        <div className="space-y-1 text-sm text-muted-foreground">
-                          <div>Max Job Postings: {pkg.maxJobPostings}</div>
-                          <div>Max Applications: {pkg.maxApplications}</div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-2">
-                        <div className="text-sm font-semibold text-foreground">Features:</div>
-                        <div className="space-y-1">
-                          {pkg.featureDetails.map((feature) => (
-                            <div key={feature.id} className="flex items-center gap-2 text-sm">
-                              <Check className="h-4 w-4 text-green-500" />
-                              <span className="text-muted-foreground">{feature.name}</span>
+            <TabsContent value={activeTab} className="mt-6">
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {filteredPlans
+                  .sort((a, b) => a.priority - b.priority)
+                  .map((plan) => (
+                    <Card key={plan._id} className="p-6">
+                      <div className="space-y-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-xl font-bold text-foreground">{plan.name}</h3>
+                              {plan.isDefault && (
+                                <Badge variant="secondary">Default</Badge>
+                              )}
                             </div>
-                          ))}
+                            <p className="mt-1 text-sm text-muted-foreground">
+                              {plan.description}
+                            </p>
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <Badge variant={plan.isActive ? "default" : "secondary"}>
+                              {plan.isActive ? "Active" : "Inactive"}
+                            </Badge>
+                            <Badge variant="outline">
+                              {plan.type === "seeker" ? (
+                                <><Users className="mr-1 h-3 w-3" /> Seeker</>
+                              ) : (
+                                <><Briefcase className="mr-1 h-3 w-3" /> Provider</>
+                              )}
+                            </Badge>
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex gap-2 pt-4">
-                        <Button
-                          variant="outline"
-                          className="flex-1 bg-transparent"
-                          onClick={() => handleEditPackage(pkg)}
-                        >
-                          <Edit className="mr-2 h-4 w-4" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 bg-transparent"
-                          onClick={() => handleDeletePackage(pkg.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-            </div>
-          </div>
+                        <div className="space-y-2">
+                          <div className="text-3xl font-bold text-foreground">
+                            ₹{plan.price}
+                            <span className="text-sm font-normal text-muted-foreground">
+                              /{plan.billingCycle}
+                            </span>
+                          </div>
 
-          {/* Package Dialog */}
-          <Dialog open={isPackageDialogOpen} onOpenChange={setIsPackageDialogOpen}>
+                          {plan.type === "provider" && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <CreditCard className="h-4 w-4" />
+                              <span>{plan.credits} credits/cycle</span>
+                            </div>
+                          )}
+
+                          {plan.type === "seeker" && plan.limits && (
+                            <div className="space-y-1 text-sm text-muted-foreground">
+                              <div>Resume Builds: {plan.limits.resumeBuilds || "∞"}</div>
+                              <div>Free Interviews: {plan.limits.freeInterviews || "∞"}</div>
+                              <div>
+                                LinkedIn after: {plan.limits.linkedinRequiredAfter || 0} interviews
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {plan.features && plan.features.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-sm font-semibold text-foreground">Features:</div>
+                            <div className="space-y-1">
+                              {plan.features.slice(0, 5).map((feature, idx) => (
+                                <div key={idx} className="flex items-center gap-2 text-sm">
+                                  <Check className="h-4 w-4 text-green-500" />
+                                  <span className="text-muted-foreground">{feature}</span>
+                                </div>
+                              ))}
+                              {plan.features.length > 5 && (
+                                <div className="text-sm text-muted-foreground">
+                                  +{plan.features.length - 5} more
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex gap-2 pt-4">
+                          <Button
+                            variant="outline"
+                            className="flex-1 bg-transparent"
+                            onClick={() => handleEditPlan(plan)}
+                          >
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="flex-1 bg-transparent"
+                            onClick={() => handleDeletePlan(plan._id)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </Button>
+                        </div>
+
+                        {/* Expandable Subscribers Section */}
+                        <Collapsible
+                          open={expandedPlans.has(plan._id)}
+                          onOpenChange={() => togglePlanExpanded(plan._id)}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="w-full justify-between mt-2 text-muted-foreground hover:text-foreground"
+                            >
+                              <span className="flex items-center gap-2">
+                                <Users className="h-4 w-4" />
+                                View Subscribers
+                                {planSubscribers[plan._id] && (
+                                  <Badge variant="secondary" className="ml-1">
+                                    {planSubscribers[plan._id].length}
+                                  </Badge>
+                                )}
+                              </span>
+                              {expandedPlans.has(plan._id) ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="mt-2">
+                            {loadingSubscribers[plan._id] ? (
+                              <div className="flex items-center justify-center py-4">
+                                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                                <span className="ml-2 text-sm text-muted-foreground">
+                                  Loading subscribers...
+                                </span>
+                              </div>
+                            ) : planSubscribers[plan._id]?.length === 0 ? (
+                              <div className="text-center py-4 text-sm text-muted-foreground">
+                                No subscribers for this plan
+                              </div>
+                            ) : (
+                              <div className="rounded-md border max-h-64 overflow-y-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow>
+                                      <TableHead className="text-xs">User</TableHead>
+                                      <TableHead className="text-xs">Type</TableHead>
+                                      <TableHead className="text-xs">Credits</TableHead>
+                                      <TableHead className="text-xs">Status</TableHead>
+                                      <TableHead className="text-xs">Billing End</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {planSubscribers[plan._id]?.map((sub) => (
+                                      <TableRow key={sub._id}>
+                                        <TableCell className="py-2">
+                                          <div>
+                                            <div className="font-medium text-xs">
+                                              {sub.profile?.name || "Unknown"}
+                                            </div>
+                                            <div className="text-xs text-muted-foreground">
+                                              {sub.profile?.email || "N/A"}
+                                            </div>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <Badge variant="outline" className="text-xs">
+                                            {sub.profile?.type === "jobseeker" ? (
+                                              <>
+                                                <Users className="mr-1 h-3 w-3" /> Seeker
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Briefcase className="mr-1 h-3 w-3" /> Provider
+                                              </>
+                                            )}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <div className="flex items-center gap-1 text-xs">
+                                            <CreditCard className="h-3 w-3 text-muted-foreground" />
+                                            <span>{getAvailableCredits(sub)}</span>
+                                            <span className="text-muted-foreground">
+                                              / {sub.credits.planCredits + sub.credits.addOnCredits}
+                                            </span>
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="py-2">
+                                          <Badge
+                                            className={`text-xs ${STATUS_COLORS[sub.status] || ""}`}
+                                          >
+                                            {sub.status}
+                                          </Badge>
+                                        </TableCell>
+                                        <TableCell className="py-2 text-xs text-muted-foreground">
+                                          {new Date(sub.billingCycle.endDate).toLocaleDateString()}
+                                        </TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </div>
+                    </Card>
+                  ))}
+              </div>
+
+              {filteredPlans.length === 0 && (
+                <div className="text-center py-12 text-muted-foreground">
+                  No plans found. Create one to get started.
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {/* Plan Dialog */}
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
               <DialogHeader>
-                <DialogTitle>{editingPackage ? "Edit Package" : "Create Package"}</DialogTitle>
-                <DialogDescription>Configure package details and select features</DialogDescription>
+                <DialogTitle>{editingPlan ? "Edit Plan" : "Create Plan"}</DialogTitle>
+                <DialogDescription>
+                  Configure subscription plan details
+                </DialogDescription>
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Package Name</Label>
-                  <Input
-                    id="name"
-                    value={packageForm.name}
-                    onChange={(e) => setPackageForm({ ...packageForm, name: e.target.value })}
-                  />
+                {/* Basic Info */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Plan Name</Label>
+                    <Input
+                      id="name"
+                      value={planForm.name}
+                      onChange={(e) => setPlanForm({ ...planForm, name: e.target.value })}
+                      placeholder="e.g., Pro Plan"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="type">Plan Type</Label>
+                    <Select
+                      value={planForm.type}
+                      onValueChange={(value: "seeker" | "provider") =>
+                        setPlanForm({ ...planForm, type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="seeker">
+                          <div className="flex items-center">
+                            <Users className="mr-2 h-4 w-4" />
+                            Job Seeker
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="provider">
+                          <div className="flex items-center">
+                            <Briefcase className="mr-2 h-4 w-4" />
+                            Job Provider
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea
                     id="description"
-                    value={packageForm.description}
-                    onChange={(e) => setPackageForm({ ...packageForm, description: e.target.value })}
+                    value={planForm.description}
+                    onChange={(e) => setPlanForm({ ...planForm, description: e.target.value })}
+                    placeholder="Brief description of the plan"
                   />
                 </div>
 
+                {/* Pricing */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Price</Label>
+                    <Label htmlFor="price">Price (₹)</Label>
                     <Input
                       id="price"
                       type="number"
-                      value={packageForm.price}
-                      onChange={(e) => setPackageForm({ ...packageForm, price: Number(e.target.value) })}
+                      min="0"
+                      value={planForm.price}
+                      onChange={(e) => setPlanForm({ ...planForm, price: Number(e.target.value) })}
                     />
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="billingCycle">Billing Cycle</Label>
                     <Select
-                      value={packageForm.billingCycle}
+                      value={planForm.billingCycle}
                       onValueChange={(value: "monthly" | "yearly" | "lifetime") =>
-                        setPackageForm({ ...packageForm, billingCycle: value })
+                        setPlanForm({ ...planForm, billingCycle: value })
                       }
                     >
                       <SelectTrigger>
@@ -426,146 +620,153 @@ export default function PackagesPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Provider-specific: Credits */}
+                {planForm.type === "provider" && (
                   <div className="space-y-2">
-                    <Label htmlFor="maxJobPostings">Max Job Postings</Label>
+                    <Label htmlFor="credits">Credits per Cycle</Label>
                     <Input
-                      id="maxJobPostings"
+                      id="credits"
                       type="number"
-                      value={packageForm.maxJobPostings}
-                      onChange={(e) =>
-                        setPackageForm({
-                          ...packageForm,
-                          maxJobPostings: Number(e.target.value),
-                        })
-                      }
+                      min="0"
+                      value={planForm.credits}
+                      onChange={(e) => setPlanForm({ ...planForm, credits: Number(e.target.value) })}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Number of credits provided each billing cycle for interviews
+                    </p>
                   </div>
+                )}
 
-                  <div className="space-y-2">
-                    <Label htmlFor="maxApplications">Max Applications</Label>
+                {/* Seeker-specific: Limits */}
+                {planForm.type === "seeker" && (
+                  <div className="space-y-4 rounded-lg border p-4">
+                    <h4 className="font-medium">Seeker Limits</h4>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="resumeBuilds">Resume Builds</Label>
+                        <Input
+                          id="resumeBuilds"
+                          type="number"
+                          min="0"
+                          value={planForm.limits.resumeBuilds}
+                          onChange={(e) =>
+                            setPlanForm({
+                              ...planForm,
+                              limits: { ...planForm.limits, resumeBuilds: Number(e.target.value) },
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="freeInterviews">Free Interviews</Label>
+                        <Input
+                          id="freeInterviews"
+                          type="number"
+                          min="0"
+                          value={planForm.limits.freeInterviews}
+                          onChange={(e) =>
+                            setPlanForm({
+                              ...planForm,
+                              limits: { ...planForm.limits, freeInterviews: Number(e.target.value) },
+                            })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="linkedinAfter">LinkedIn After</Label>
+                        <Input
+                          id="linkedinAfter"
+                          type="number"
+                          min="0"
+                          value={planForm.limits.linkedinRequiredAfter}
+                          onChange={(e) =>
+                            setPlanForm({
+                              ...planForm,
+                              limits: {
+                                ...planForm.limits,
+                                linkedinRequiredAfter: Number(e.target.value),
+                              },
+                            })
+                          }
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      LinkedIn is required after the specified number of interviews
+                    </p>
+                  </div>
+                )}
+
+                {/* Features */}
+                <div className="space-y-2">
+                  <Label>Features</Label>
+                  <div className="flex gap-2">
                     <Input
-                      id="maxApplications"
-                      type="number"
-                      value={packageForm.maxApplications}
-                      onChange={(e) =>
-                        setPackageForm({
-                          ...packageForm,
-                          maxApplications: Number(e.target.value),
-                        })
-                      }
+                      value={newFeature}
+                      onChange={(e) => setNewFeature(e.target.value)}
+                      placeholder="Add a feature"
+                      onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addFeature())}
                     />
+                    <Button type="button" onClick={addFeature}>
+                      Add
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {planForm.features.map((feature, idx) => (
+                      <Badge
+                        key={idx}
+                        variant="secondary"
+                        className="cursor-pointer"
+                        onClick={() => removeFeature(feature)}
+                      >
+                        {feature} ×
+                      </Badge>
+                    ))}
                   </div>
                 </div>
 
+                {/* Priority and Status */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="priority">Priority (Display Order)</Label>
                     <Input
                       id="priority"
                       type="number"
-                      value={packageForm.priority}
-                      onChange={(e) => setPackageForm({ ...packageForm, priority: Number(e.target.value) })}
+                      value={planForm.priority}
+                      onChange={(e) => setPlanForm({ ...planForm, priority: Number(e.target.value) })}
                     />
                   </div>
 
-                  <div className="flex items-center space-x-2 pt-8">
-                    <Switch
-                      id="isActive"
-                      checked={packageForm.isActive}
-                      onCheckedChange={(checked) => setPackageForm({ ...packageForm, isActive: checked })}
-                    />
-                    <Label htmlFor="isActive">Active</Label>
-                  </div>
-                </div>
+                  <div className="space-y-4 pt-6">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="isActive"
+                        checked={planForm.isActive}
+                        onCheckedChange={(checked) => setPlanForm({ ...planForm, isActive: checked })}
+                      />
+                      <Label htmlFor="isActive">Active</Label>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label>Features</Label>
-                  <div className="space-y-2 rounded-lg border border-border p-4">
-                    {features.map((feature) => (
-                      <div key={feature.id} className="flex items-center space-x-2">
-                        <Switch
-                          id={`feature-${feature.id}`}
-                          checked={packageForm.features.includes(feature.id)}
-                          onCheckedChange={() => toggleFeatureInPackage(feature.id)}
-                        />
-                        <Label htmlFor={`feature-${feature.id}`} className="flex-1 cursor-pointer">
-                          <div className="flex items-center justify-between">
-                            <span>{feature.name}</span>
-                            <Badge variant="outline" className="ml-2">
-                              {feature.category}
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">{feature.description}</p>
-                        </Label>
-                      </div>
-                    ))}
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="isDefault"
+                        checked={planForm.isDefault}
+                        onCheckedChange={(checked) => setPlanForm({ ...planForm, isDefault: checked })}
+                      />
+                      <Label htmlFor="isDefault">Default Plan</Label>
+                    </div>
                   </div>
                 </div>
               </div>
 
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsPackageDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={handleSavePackage}>Save Package</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-
-          {/* Feature Dialog */}
-          <Dialog open={isFeatureDialogOpen} onOpenChange={setIsFeatureDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingFeature ? "Edit Feature" : "Create Feature"}</DialogTitle>
-                <DialogDescription>Define a feature for your packages</DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="featureName">Feature Name</Label>
-                  <Input
-                    id="featureName"
-                    value={featureForm.name}
-                    onChange={(e) => setFeatureForm({ ...featureForm, name: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="featureDescription">Description</Label>
-                  <Textarea
-                    id="featureDescription"
-                    value={featureForm.description}
-                    onChange={(e) => setFeatureForm({ ...featureForm, description: e.target.value })}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select
-                    value={featureForm.category}
-                    onValueChange={(value: "core" | "advanced" | "premium" | "enterprise") =>
-                      setFeatureForm({ ...featureForm, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="core">Core</SelectItem>
-                      <SelectItem value="advanced">Advanced</SelectItem>
-                      <SelectItem value="premium">Premium</SelectItem>
-                      <SelectItem value="enterprise">Enterprise</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsFeatureDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button onClick={handleSaveFeature}>Save Feature</Button>
+                <Button onClick={handleSavePlan}>Save Plan</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>

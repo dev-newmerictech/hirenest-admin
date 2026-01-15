@@ -8,7 +8,7 @@ import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, Briefcase, Settings, LogOut, Building2, Package, Menu } from "lucide-react"
+import { LayoutDashboard, Users, Briefcase, Settings, LogOut, Building2, Package, Menu, Coins, CreditCard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { clearAuthSession } from "@/lib/auth"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -24,7 +24,9 @@ const navigation = [
   { name: "Job Seekers", href: "/admin/job-seekers", icon: Users },
   { name: "Companies", href: "/admin/companies", icon: Building2 },
   { name: "Jobs", href: "/admin/jobs", icon: Briefcase },
-  // { name: "Packages", href: "/admin/packages", icon: Package },
+  { name: "Packages", href: "/admin/packages", icon: Package },
+  { name: "Credit Costs", href: "/admin/credit-costs", icon: Coins },
+  { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ]
 
