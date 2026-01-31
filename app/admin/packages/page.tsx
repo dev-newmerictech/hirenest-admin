@@ -59,7 +59,7 @@ export default function PackagesPage() {
     credits: 0,
     features: [] as string[],
     limits: {
-      resumeBuilds: 3,
+      resumeBuilds: 2,
       freeInterviews: 5,
       linkedinRequiredAfter: 2,
     },
@@ -103,7 +103,7 @@ export default function PackagesPage() {
       credits: 0,
       features: [],
       limits: {
-        resumeBuilds: 3,
+        resumeBuilds: 2,
         freeInterviews: 5,
         linkedinRequiredAfter: 2,
       },
