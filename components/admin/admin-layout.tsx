@@ -19,6 +19,11 @@ interface AdminLayoutProps {
   children: React.ReactNode
 }
 
+interface AdminLogoProps {
+  width: number
+  height: number
+}
+
 const navigation = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Job Seekers", href: "/admin/job-seekers", icon: Users },
@@ -29,6 +34,33 @@ const navigation = [
   { name: "Subscriptions", href: "/admin/subscriptions", icon: CreditCard },
   { name: "Settings", href: "/admin/settings", icon: Settings },
 ]
+
+function AdminLogo({ width, height }: AdminLogoProps) {
+  const [logoFailed, setLogoFailed] = useState(false)
+
+  if (logoFailed) {
+    return (
+      <div
+        className="inline-flex items-center rounded-md bg-primary/10 px-2 py-1 text-xs font-semibold tracking-wide text-primary"
+        aria-label="HireNest Admin"
+      >
+        HIRENEST
+      </div>
+    )
+  }
+
+  return (
+    <Image
+      src="/logo.svg"
+      alt="HireNest Admin"
+      width={width}
+      height={height}
+      className="h-auto w-auto max-w-full"
+      priority
+      onError={() => setLogoFailed(true)}
+    />
+  )
+}
 
 export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
@@ -47,7 +79,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
         <div className="flex h-full flex-col">
           {/* Logo */}
           <div className="flex items-center border-b border-border px-6 py-4">
-            <Image src="/logo.svg" alt="HireNest Admin" width={100} height={100} />
+            <AdminLogo width={100} height={100} />
           </div>
 
           {/* Navigation */}
@@ -97,7 +129,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open menu">
               <Menu className="h-5 w-5" />
             </Button>
-            <Image src="/logo.svg" alt="HireNest Admin" width={90} height={90} />
+            <AdminLogo width={90} height={90} />
           </div>
           <div className="flex items-center gap-2">
             {/* <ThemeToggle /> */}
@@ -116,7 +148,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </SheetHeader>
           <div className="flex h-full flex-col">
             <div className="flex items-center border-b border-border px-6 py-4">
-              <Image src="/logo.svg" alt="HireNest Admin" width={100} height={100} />
+              <AdminLogo width={100} height={100} />
             </div>
             <nav className="flex-1 space-y-1 px-3 py-4">
               {navigation.map((item) => {
