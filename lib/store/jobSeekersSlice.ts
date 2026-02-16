@@ -5,7 +5,8 @@ import {
   jobSeekersApi, 
   JobSeekersListResponse, 
   JobSeekerDetailResponse,
-  transformJobSeeker 
+  transformJobSeeker,
+  extractJobSeekerFromDetailResponse,
 } from '../api/jobSeekers';
 import { JobSeeker } from '../types';
 
@@ -232,7 +233,8 @@ const jobSeekersSlice = createSlice({
       })
       .addCase(fetchJobSeekerProfile.fulfilled, (state, action: PayloadAction<JobSeekerDetailResponse>) => {
         state.isLoading = false;
-        state.selectedJobSeeker = transformJobSeeker(action.payload.data);
+        const jobSeeker = extractJobSeekerFromDetailResponse(action.payload.data);
+        state.selectedJobSeeker = transformJobSeeker(jobSeeker);
         state.error = null;
       })
       .addCase(fetchJobSeekerProfile.rejected, (state, action) => {
@@ -247,7 +249,8 @@ const jobSeekersSlice = createSlice({
       })
       .addCase(toggleJobSeekerStatus.fulfilled, (state, action: PayloadAction<JobSeekerDetailResponse>) => {
         state.isUpdating = false;
-        const transformedJobSeeker = transformJobSeeker(action.payload.data);
+        const jobSeeker = extractJobSeekerFromDetailResponse(action.payload.data);
+        const transformedJobSeeker = transformJobSeeker(jobSeeker);
         // Update in the list
         const index = state.jobSeekers.findIndex(js => js.id === transformedJobSeeker.id);
         if (index !== -1) {
@@ -271,7 +274,8 @@ const jobSeekersSlice = createSlice({
       })
       .addCase(updateJobSeeker.fulfilled, (state, action: PayloadAction<JobSeekerDetailResponse>) => {
         state.isUpdating = false;
-        const transformedJobSeeker = transformJobSeeker(action.payload.data);
+        const jobSeeker = extractJobSeekerFromDetailResponse(action.payload.data);
+        const transformedJobSeeker = transformJobSeeker(jobSeeker);
         // Update in the list
         const index = state.jobSeekers.findIndex(js => js.id === transformedJobSeeker.id);
         if (index !== -1) {

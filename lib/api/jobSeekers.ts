@@ -18,7 +18,7 @@ export interface JobSeekersListResponse {
 
 export interface JobSeekerDetailResponse {
   status: string;
-  data: JobSeekerAPIResponse;
+  data: JobSeekerAPIResponse | { jobSeeker: JobSeekerAPIResponse };
 }
 
 // Transform API response to internal format
@@ -27,10 +27,23 @@ export function transformJobSeeker(apiJobSeeker: JobSeekerAPIResponse): JobSeeke
     id: apiJobSeeker._id,
     name: apiJobSeeker.name,
     email: apiJobSeeker.email,
-    phone: `+${apiJobSeeker.mobile.countryCode}${apiJobSeeker.mobile.mobileNumber}`,
+    phone:
+      apiJobSeeker.mobile?.countryCode != null && apiJobSeeker.mobile?.mobileNumber != null
+        ? `+${apiJobSeeker.mobile.countryCode}${apiJobSeeker.mobile.mobileNumber}`
+        : 'N/A',
     registrationDate: apiJobSeeker.createdAt,
     isActive: apiJobSeeker.isActive,
   };
+}
+
+export function extractJobSeekerFromDetailResponse(
+  detailData: JobSeekerDetailResponse['data']
+): JobSeekerAPIResponse {
+  if ('jobSeeker' in detailData) {
+    return detailData.jobSeeker;
+  }
+
+  return detailData;
 }
 
 export interface ToggleStatusRequest {
