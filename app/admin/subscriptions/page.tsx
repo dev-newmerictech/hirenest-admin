@@ -42,7 +42,7 @@ import {
 import type { SubscriptionWithProfile, SubscriptionPlan, SubscriptionAnalytics } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.hirenest.ai"
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",

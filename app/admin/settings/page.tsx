@@ -147,6 +147,17 @@ export default function SettingsPage() {
         <div className="space-y-6 mt-4 sm:mt-0">
           <PageHeader title="Invite Team Members" description="Add new team members by sending them an email invitation." />
 
+          <Card className="p-6 shadow-none max-w-4xl">
+            <div className="space-y-2">
+              <h3 className="text-lg font-semibold text-foreground">Candidate interview policy</h3>
+              <ul className="list-disc pl-4 text-sm text-muted-foreground space-y-1">
+                <li>MCQ/open-ended interviews can be resumed within 1 hour; timer resumes with saved answers and uploads.</li>
+                <li>Enforce a minimum <strong>10 Mbps</strong> connection check before starting collective or separate interviews.</li>
+                <li>Realtime video interviews restart fresh on reconnect or window close.</li>
+              </ul>
+            </div>
+          </Card>
+
           {/* Invite form */}
           <Card className="p-6 shadow-none  max-w-4xl">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">

@@ -13,6 +13,11 @@ export const metadata: Metadata = {
   title: "HireNest",
   description: "Admin panel for HireNest",
   generator: "HireNest",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 }
 
 export default function RootLayout({

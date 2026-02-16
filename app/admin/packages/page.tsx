@@ -34,7 +34,7 @@ import { Plus, Edit, Trash2, Check, Users, Briefcase, CreditCard, ChevronDown, C
 import type { SubscriptionPlan, SubscriptionWithProfile } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.hirenest.ai"
 
 export default function PackagesPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
@@ -59,7 +59,7 @@ export default function PackagesPage() {
     credits: 0,
     features: [] as string[],
     limits: {
-      resumeBuilds: 3,
+      resumeBuilds: 2,
       freeInterviews: 5,
       linkedinRequiredAfter: 2,
     },
@@ -103,7 +103,7 @@ export default function PackagesPage() {
       credits: 0,
       features: [],
       limits: {
-        resumeBuilds: 3,
+        resumeBuilds: 2,
         freeInterviews: 5,
         linkedinRequiredAfter: 2,
       },
