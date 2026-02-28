@@ -285,7 +285,7 @@ export default function CompaniesPage() {
               <Eye className="mr-2 h-4 w-4" />
               View Details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => router.push(`/admin/companies/${item.id}`)}>
+            <DropdownMenuItem onClick={() => item.id && router.push(`/admin/companies/${item.id}`)}>
               <User className="mr-2 h-4 w-4" />
               View Profile
             </DropdownMenuItem>

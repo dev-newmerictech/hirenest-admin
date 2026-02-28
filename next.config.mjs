@@ -17,8 +17,6 @@ const nextConfig = {
   },
   basePath: normalizedBasePath,
   assetPrefix: normalizedBasePath || undefined,
-  // Build directly to a static `out` folder
-  output: 'export',
 }
 
 export default nextConfig
