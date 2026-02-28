@@ -225,7 +225,7 @@ export default function JobSeekersPage() {
       render: (item) => (
         <ActionButtons
           onView={() => handleView(item)}
-          onViewProfile={() => router.push(`/admin/job-seekers/${item.id}`)}
+          onViewProfile={() => item.id && router.push(`/admin/job-seekers/${item.id}`)}
           onActivate={() => handleToggleStatus(item)}
           onDeactivate={() => handleToggleStatus(item)}
           onDelete={() => handleDelete(item)}
