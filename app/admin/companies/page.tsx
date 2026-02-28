@@ -174,6 +174,23 @@ export default function CompaniesPage() {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const getVerificationStatus = (company: Company): "approved" | "rejected" | "pending" => {
+    if (typeof company.isDocumentVerified === "boolean") {
+      return company.isDocumentVerified ? "approved" : "rejected"
+    }
+
+    if (company.verificationStatus === "approved" || company.verificationStatus === "rejected") {
+      return company.verificationStatus
+    }
+
+    return "pending"
+  }
+
+  const selectedVerificationStatus = useMemo(
+    () => (selectedCompany ? getVerificationStatus(selectedCompany) : "pending"),
+    [selectedCompany]
+  )
+
   // Generate page numbers for pagination
   const getPageNumbers = () => {
     if (!pagination) return []
@@ -242,11 +259,7 @@ export default function CompaniesPage() {
       key: "verificationStatus",
       label: "Verification",
       render: (item) => {
-        // Use isDocumentVerified if available, otherwise fall back to verificationStatus
-        const isVerified = item.isDocumentVerified !== undefined 
-          ? item.isDocumentVerified 
-          : item.verificationStatus === "approved";
-        const status = isVerified ? "approved" : (item.verificationStatus === "rejected" ? "rejected" : "pending");
+        const status = getVerificationStatus(item)
         
         return (
           <Badge
@@ -289,7 +302,7 @@ export default function CompaniesPage() {
               <User className="mr-2 h-4 w-4" />
               View Profile
             </DropdownMenuItem>
-            {(item.verificationStatus === "pending" || item.isDocumentVerified === undefined || item.isDocumentVerified === false) && (
+            {getVerificationStatus(item) !== "approved" && (
               <>
                 <DropdownMenuItem onClick={() => handleVerification(item, "approved")}>
                   <ShieldCheck className="mr-2 h-4 w-4" />
@@ -456,23 +469,23 @@ export default function CompaniesPage() {
                 <div className="mt-1">
                   <Badge
                     variant={
-                      selectedCompany.isDocumentVerified === true
+                      selectedVerificationStatus === "approved"
                         ? "default"
-                        : selectedCompany.isDocumentVerified === false
+                        : selectedVerificationStatus === "rejected"
                           ? "destructive"
                           : "secondary"
                     }
                     className={
-                      selectedCompany.isDocumentVerified === true
+                      selectedVerificationStatus === "approved"
                         ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-                        : selectedCompany.isDocumentVerified === false
+                        : selectedVerificationStatus === "rejected"
                           ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
                           : ""
                     }
                   >
-                    {selectedCompany.isDocumentVerified === true
+                    {selectedVerificationStatus === "approved"
                       ? "Verified"
-                      : selectedCompany.isDocumentVerified === false
+                      : selectedVerificationStatus === "rejected"
                         ? "Rejected"
                         : "Pending"}
                   </Badge>
@@ -483,26 +496,25 @@ export default function CompaniesPage() {
                 <div className="mt-1">
                   <Badge
                     variant={
-                      selectedCompany.verificationStatus === "approved"
+                      selectedVerificationStatus === "approved"
                         ? "default"
-                        : selectedCompany.verificationStatus === "rejected"
+                        : selectedVerificationStatus === "rejected"
                           ? "destructive"
                           : "secondary"
                     }
                     className={
-                      selectedCompany.verificationStatus === "approved"
+                      selectedVerificationStatus === "approved"
                         ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-                        : selectedCompany.verificationStatus === "rejected"
+                        : selectedVerificationStatus === "rejected"
                           ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
                           : ""
                     }
                   >
-                    {selectedCompany.verificationStatus.charAt(0).toUpperCase() +
-                      selectedCompany.verificationStatus.slice(1)}
+                    {selectedVerificationStatus.charAt(0).toUpperCase() + selectedVerificationStatus.slice(1)}
                   </Badge>
                 </div>
               </div>
-              {(selectedCompany.verificationStatus === "pending" || selectedCompany.isDocumentVerified === undefined || selectedCompany.isDocumentVerified === false) && (
+              {selectedVerificationStatus !== "approved" && (
                 <div className="flex gap-2 pt-2">
                   <Button
                     onClick={() => {

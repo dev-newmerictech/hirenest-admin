@@ -17,6 +17,7 @@ import {
   clearSelectedCompany,
   fetchCompanyProfile,
 } from "@/lib/store/companiesSlice"
+import type { Company } from "@/lib/types"
 
 function getIdParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -26,6 +27,18 @@ function getIdParam(value: string | string[] | undefined) {
   return value ?? ""
 }
 
+function getVerificationStatus(company: Company): "approved" | "rejected" | "pending" {
+  if (typeof company.isDocumentVerified === "boolean") {
+    return company.isDocumentVerified ? "approved" : "rejected"
+  }
+
+  if (company.verificationStatus === "approved" || company.verificationStatus === "rejected") {
+    return company.verificationStatus
+  }
+
+  return "pending"
+}
+
 export default function CompanyProfilePage() {
   const router = useRouter()
   const params = useParams<{ id: string | string[] }>()
@@ -33,6 +46,10 @@ export default function CompanyProfilePage() {
   const { selectedCompany, isLoading, error } = useAppSelector((state) => state.companies)
 
   const companyId = useMemo(() => getIdParam(params?.id), [params?.id])
+  const selectedVerificationStatus = useMemo(
+    () => (selectedCompany ? getVerificationStatus(selectedCompany) : "pending"),
+    [selectedCompany]
+  )
 
   useEffect(() => {
     if (companyId) {
@@ -120,22 +137,22 @@ export default function CompanyProfilePage() {
                     <div className="mt-1">
                       <Badge
                         variant={
-                          selectedCompany.verificationStatus === "approved"
+                          selectedVerificationStatus === "approved"
                             ? "default"
-                            : selectedCompany.verificationStatus === "rejected"
+                            : selectedVerificationStatus === "rejected"
                               ? "destructive"
                               : "secondary"
                         }
                         className={
-                          selectedCompany.verificationStatus === "approved"
+                          selectedVerificationStatus === "approved"
                             ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-                            : selectedCompany.verificationStatus === "rejected"
+                            : selectedVerificationStatus === "rejected"
                               ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
                               : ""
                         }
                       >
-                        {selectedCompany.verificationStatus.charAt(0).toUpperCase() +
-                          selectedCompany.verificationStatus.slice(1)}
+                        {selectedVerificationStatus.charAt(0).toUpperCase() +
+                          selectedVerificationStatus.slice(1)}
                       </Badge>
                     </div>
                   </div>
