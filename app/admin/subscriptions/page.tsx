@@ -36,13 +36,11 @@ import {
   Eye,
   Search,
   RefreshCw,
-  TrendingUp,
-  TrendingDown,
+  Gift,
 } from "lucide-react"
 import type { SubscriptionWithProfile, SubscriptionPlan, SubscriptionAnalytics } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.hirenest.ai"
+import { subscriptionsApi } from "@/lib/api/subscriptions"
 
 const STATUS_COLORS: Record<string, string> = {
   active: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -67,8 +65,13 @@ export default function SubscriptionsPage() {
   const [selectedSubscription, setSelectedSubscription] = useState<SubscriptionWithProfile | null>(null)
   const [isDetailsOpen, setIsDetailsOpen] = useState(false)
   const [isAddCreditsOpen, setIsAddCreditsOpen] = useState(false)
+  const [isAssignPlanOpen, setIsAssignPlanOpen] = useState(false)
   const [creditsToAdd, setCreditsToAdd] = useState(0)
   const [creditReason, setCreditReason] = useState("")
+  const [targetPlanId, setTargetPlanId] = useState("")
+  const [resetCreditsOnGrant, setResetCreditsOnGrant] = useState(true)
+  const [resetCycleOnGrant, setResetCycleOnGrant] = useState(true)
+  const [grantReason, setGrantReason] = useState("")
 
   const { toast } = useToast()
 
@@ -91,12 +94,11 @@ export default function SubscriptionsPage() {
       if (search) params.append("search", search)
 
       const [subsRes, plansRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/admin/subscription/subscriptions?${params}`),
-        fetch(`${API_BASE_URL}/admin/subscription/plans`),
+        subscriptionsApi.listSubscriptions(params),
+        subscriptionsApi.getPlans(),
       ])
-
-      const subsData = await subsRes.json()
-      const plansData = await plansRes.json()
+      const subsData = subsRes
+      const plansData = plansRes
 
       if (subsData.success) {
         setSubscriptions(subsData.data.subscriptions)
@@ -118,8 +120,7 @@ export default function SubscriptionsPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/subscription/analytics`)
-      const data = await response.json()
+      const data = await subscriptionsApi.getAnalytics()
       if (data.success) {
         setAnalytics(data.data)
       }
@@ -130,10 +131,7 @@ export default function SubscriptionsPage() {
 
   const handleViewDetails = async (profileId: string) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/admin/subscription/subscriptions/${profileId}`
-      )
-      const data = await response.json()
+      const data = await subscriptionsApi.getSubscription(profileId)
       if (data.success) {
         setSelectedSubscription(data.data.subscription)
         setIsDetailsOpen(true)
@@ -151,18 +149,11 @@ export default function SubscriptionsPage() {
     if (!selectedSubscription || creditsToAdd <= 0) return
 
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/admin/subscription/subscriptions/${selectedSubscription.profileId}/credits`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            credits: creditsToAdd,
-            reason: creditReason || "Admin added credits",
-          }),
-        }
+      const data = await subscriptionsApi.addCredits(
+        selectedSubscription.profileId,
+        creditsToAdd,
+        creditReason || "Admin added credits"
       )
-      const data = await response.json()
       if (data.success) {
         toast({
           title: "Success",
@@ -186,15 +177,7 @@ export default function SubscriptionsPage() {
 
   const handleUpdateStatus = async (profileId: string, status: string) => {
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/admin/subscription/subscriptions/${profileId}/status`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ status }),
-        }
-      )
-      const data = await response.json()
+      const data = await subscriptionsApi.updateStatus(profileId, status)
       if (data.success) {
         toast({
           title: "Success",
@@ -211,8 +194,40 @@ export default function SubscriptionsPage() {
     }
   }
 
+  const handleAssignPlan = async () => {
+    if (!selectedSubscription || !targetPlanId) return
+
+    try {
+      const data = await subscriptionsApi.assignPlan(selectedSubscription.profileId, {
+        planId: targetPlanId,
+        resetCredits: resetCreditsOnGrant,
+        resetBillingCycle: resetCycleOnGrant,
+        reason: grantReason || "Admin changed plan",
+      })
+
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Plan assigned successfully",
+        })
+        setIsAssignPlanOpen(false)
+        setGrantReason("")
+        setTargetPlanId("")
+        fetchData()
+      } else {
+        throw new Error(data.message)
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to assign plan",
+        variant: "destructive",
+      })
+    }
+  }
+
   const getAvailableCredits = (sub: SubscriptionWithProfile) => {
-    return sub.credits.planCredits + sub.credits.addOnCredits - sub.credits.usedCredits
+    return sub.credits.planCredits + sub.credits.extraCredits
   }
 
   if (loading) {
@@ -361,7 +376,7 @@ export default function SubscriptionsPage() {
                         <CreditCard className="h-4 w-4 text-muted-foreground" />
                         <span>{getAvailableCredits(sub)}</span>
                         <span className="text-muted-foreground">
-                          / {sub.credits.planCredits + sub.credits.addOnCredits}
+                          / {sub.credits.planCredits + sub.credits.extraCredits}
                         </span>
                       </div>
                     </TableCell>
@@ -386,6 +401,17 @@ export default function SubscriptionsPage() {
                           }}
                         >
                           <Plus className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedSubscription(sub)
+                            setTargetPlanId(typeof sub.planId === "object" ? sub.planId._id : "")
+                            setIsAssignPlanOpen(true)
+                          }}
+                        >
+                          <Gift className="h-4 w-4" />
                         </Button>
                       </div>
                     </TableCell>
@@ -475,9 +501,9 @@ export default function SubscriptionsPage() {
                       </div>
                     </Card>
                     <Card className="p-4">
-                      <div className="text-sm text-muted-foreground">Add-on Credits</div>
+                      <div className="text-sm text-muted-foreground">Extra Credits</div>
                       <div className="text-xl font-bold">
-                        {selectedSubscription.credits.addOnCredits}
+                        {selectedSubscription.credits.extraCredits}
                       </div>
                     </Card>
                     <Card className="p-4">
@@ -557,6 +583,67 @@ export default function SubscriptionsPage() {
                 </Button>
                 <Button onClick={handleAddCredits} disabled={creditsToAdd <= 0}>
                   Add Credits
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isAssignPlanOpen} onOpenChange={setIsAssignPlanOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Grant / Change Plan</DialogTitle>
+                <DialogDescription>
+                  Assign a plan to {selectedSubscription?.profile?.name}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Plan</Label>
+                  <Select value={targetPlanId} onValueChange={setTargetPlanId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {plans.map((plan) => (
+                        <SelectItem key={plan._id} value={plan._id}>
+                          {plan.name} ({plan.type})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="reset-credits">Reset credits from assigned plan</Label>
+                  <Switch
+                    id="reset-credits"
+                    checked={resetCreditsOnGrant}
+                    onCheckedChange={setResetCreditsOnGrant}
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="reset-cycle">Reset billing cycle</Label>
+                  <Switch
+                    id="reset-cycle"
+                    checked={resetCycleOnGrant}
+                    onCheckedChange={setResetCycleOnGrant}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="grant-reason">Reason (optional)</Label>
+                  <Input
+                    id="grant-reason"
+                    value={grantReason}
+                    onChange={(e) => setGrantReason(e.target.value)}
+                    placeholder="e.g., Admin granted promotional upgrade"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAssignPlanOpen(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAssignPlan} disabled={!targetPlanId}>
+                  Assign Plan
                 </Button>
               </DialogFooter>
             </DialogContent>

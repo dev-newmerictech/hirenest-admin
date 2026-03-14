@@ -182,6 +182,7 @@ export interface SubscriptionPlan {
   isDefault: boolean
   priority: number
   description?: string
+  razorpayPlanId?: string
   createdAt: string
   updatedAt: string
 }
@@ -205,7 +206,7 @@ export interface Subscription {
   status: "active" | "expired" | "cancelled" | "trial" | "free"
   credits: {
     planCredits: number
-    addOnCredits: number
+    extraCredits: number
     usedCredits: number
   }
   billingCycle: {
@@ -220,6 +221,13 @@ export interface Subscription {
   }
   createdAt: string
   updatedAt: string
+}
+
+export interface AssignPlanRequest {
+  planId: string
+  resetCredits?: boolean
+  resetBillingCycle?: boolean
+  reason?: string
 }
 
 export interface SubscriptionWithProfile extends Subscription {

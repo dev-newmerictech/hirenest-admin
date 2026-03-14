@@ -33,8 +33,7 @@ import {
 import { Plus, Edit, Trash2, Check, Users, Briefcase, CreditCard, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
 import type { SubscriptionPlan, SubscriptionWithProfile } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.hirenest.ai"
+import { subscriptionsApi } from "@/lib/api/subscriptions"
 
 export default function PackagesPage() {
   const [plans, setPlans] = useState<SubscriptionPlan[]>([])
@@ -66,6 +65,7 @@ export default function PackagesPage() {
     isActive: true,
     isDefault: false,
     priority: 0,
+    razorpayPlanId: "",
   })
 
   const [newFeature, setNewFeature] = useState("")
@@ -76,8 +76,7 @@ export default function PackagesPage() {
 
   const fetchPlans = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/subscription/plans`)
-      const data = await response.json()
+      const data = await subscriptionsApi.getPlans()
       if (data.success) {
         setPlans(data.data)
       }
@@ -110,6 +109,7 @@ export default function PackagesPage() {
       isActive: true,
       isDefault: false,
       priority: 0,
+      razorpayPlanId: "",
     })
     setIsDialogOpen(true)
   }
@@ -132,24 +132,16 @@ export default function PackagesPage() {
       isActive: plan.isActive,
       isDefault: plan.isDefault,
       priority: plan.priority,
+      razorpayPlanId: plan.razorpayPlanId || "",
     })
     setIsDialogOpen(true)
   }
 
   const handleSavePlan = async () => {
     try {
-      const url = editingPlan
-        ? `${API_BASE_URL}/admin/subscription/plans/${editingPlan._id}`
-        : `${API_BASE_URL}/admin/subscription/plans`
-      const method = editingPlan ? "PUT" : "POST"
-
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(planForm),
-      })
-
-      const data = await response.json()
+      const data = editingPlan
+        ? await subscriptionsApi.updatePlan(editingPlan._id, planForm)
+        : await subscriptionsApi.createPlan(planForm)
 
       if (data.success) {
         toast({
@@ -174,11 +166,7 @@ export default function PackagesPage() {
     if (!confirm("Are you sure you want to delete this plan?")) return
 
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/subscription/plans/${id}`, {
-        method: "DELETE",
-      })
-
-      const data = await response.json()
+      const data = await subscriptionsApi.deletePlan(id)
 
       if (data.success) {
         toast({
@@ -226,10 +214,8 @@ export default function PackagesPage() {
 
     setLoadingSubscribers((prev) => ({ ...prev, [planId]: true }))
     try {
-      const response = await fetch(
-        `${API_BASE_URL}/admin/subscription/subscriptions?planId=${planId}&limit=50`
-      )
-      const data = await response.json()
+      const query = new URLSearchParams({ planId, limit: "50" })
+      const data = await subscriptionsApi.listSubscriptions(query)
       if (data.success) {
         setPlanSubscribers((prev) => ({ ...prev, [planId]: data.data.subscriptions }))
       }
@@ -259,7 +245,7 @@ export default function PackagesPage() {
 
   // Calculate available credits for a subscription
   const getAvailableCredits = (sub: SubscriptionWithProfile) => {
-    return sub.credits.planCredits + sub.credits.addOnCredits - sub.credits.usedCredits
+    return sub.credits.planCredits + sub.credits.extraCredits
   }
 
   // Status color mapping
@@ -490,7 +476,7 @@ export default function PackagesPage() {
                                             <CreditCard className="h-3 w-3 text-muted-foreground" />
                                             <span>{getAvailableCredits(sub)}</span>
                                             <span className="text-muted-foreground">
-                                              / {sub.credits.planCredits + sub.credits.addOnCredits}
+                                              / {sub.credits.planCredits + sub.credits.extraCredits}
                                             </span>
                                           </div>
                                         </TableCell>
@@ -618,6 +604,16 @@ export default function PackagesPage() {
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="razorpayPlanId">Razorpay Plan ID</Label>
+                  <Input
+                    id="razorpayPlanId"
+                    value={planForm.razorpayPlanId}
+                    onChange={(e) => setPlanForm({ ...planForm, razorpayPlanId: e.target.value })}
+                    placeholder="plan_xxxxx"
+                  />
                 </div>
 
                 {/* Provider-specific: Credits */}
