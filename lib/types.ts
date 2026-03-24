@@ -173,8 +173,11 @@ export interface SubscriptionPlan {
   _id: string
   name: string
   type: "seeker" | "provider"
+  tier: "free" | "advanced" | "small" | "mid" | "enterprise"
   price: number
+  currency: "USD"
   billingCycle: "monthly" | "yearly" | "lifetime"
+  intervalMonths: number
   credits: number
   features: string[]
   limits: SubscriptionPlanLimits
@@ -183,6 +186,19 @@ export interface SubscriptionPlan {
   priority: number
   description?: string
   razorpayPlanId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface AddOnPackage {
+  _id: string
+  name: string
+  credits: number
+  price: number
+  currency: "USD"
+  savings?: string
+  isActive: boolean
+  priority: number
   createdAt: string
   updatedAt: string
 }
