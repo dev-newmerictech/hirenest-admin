@@ -31,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Plus, Edit, Trash2, Check, Users, Briefcase, CreditCard, ChevronDown, ChevronUp, Loader2 } from "lucide-react"
-import type { SubscriptionPlan, SubscriptionWithProfile } from "@/lib/types"
+import type { AddOnPackage, SubscriptionPlan, SubscriptionWithProfile } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 import { subscriptionsApi } from "@/lib/api/subscriptions"
 
@@ -42,6 +42,15 @@ export default function PackagesPage() {
   const [editingPlan, setEditingPlan] = useState<SubscriptionPlan | null>(null)
   const [activeTab, setActiveTab] = useState<"all" | "seeker" | "provider">("all")
   const { toast } = useToast()
+  const [addOnPackages, setAddOnPackages] = useState<AddOnPackage[]>([])
+  const [addOnForm, setAddOnForm] = useState({
+    name: "",
+    credits: 10,
+    price: 5,
+    savings: "",
+    isActive: true,
+    priority: 0,
+  })
 
   // Subscriber view state
   const [expandedPlans, setExpandedPlans] = useState<Set<string>>(new Set())
@@ -52,9 +61,12 @@ export default function PackagesPage() {
   const [planForm, setPlanForm] = useState({
     name: "",
     type: "provider" as "seeker" | "provider",
+    tier: "free" as "free" | "advanced" | "small" | "mid" | "enterprise",
     description: "",
     price: 0,
+    currency: "USD" as const,
     billingCycle: "monthly" as "monthly" | "yearly" | "lifetime",
+    intervalMonths: 1,
     credits: 0,
     features: [] as string[],
     limits: {
@@ -72,6 +84,7 @@ export default function PackagesPage() {
 
   useEffect(() => {
     fetchPlans()
+    fetchAddOns()
   }, [])
 
   const fetchPlans = async () => {
@@ -91,14 +104,32 @@ export default function PackagesPage() {
     }
   }
 
+  const fetchAddOns = async () => {
+    try {
+      const data = await subscriptionsApi.getAddOnPackages()
+      if (data.success) {
+        setAddOnPackages(data.data)
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to load add-on packages",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleCreatePlan = () => {
     setEditingPlan(null)
     setPlanForm({
       name: "",
       type: "provider",
+      tier: "free",
       description: "",
       price: 0,
+      currency: "USD",
       billingCycle: "monthly",
+      intervalMonths: 1,
       credits: 0,
       features: [],
       limits: {
@@ -119,9 +150,12 @@ export default function PackagesPage() {
     setPlanForm({
       name: plan.name,
       type: plan.type,
+      tier: plan.tier || "free",
       description: plan.description || "",
       price: plan.price,
+      currency: plan.currency || "USD",
       billingCycle: plan.billingCycle,
+      intervalMonths: plan.intervalMonths || (plan.billingCycle === "yearly" ? 12 : 1),
       credits: plan.credits,
       features: plan.features || [],
       limits: {
@@ -181,6 +215,99 @@ export default function PackagesPage() {
       toast({
         title: "Error",
         description: error.message || "Failed to delete plan",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleProvisionDefaultCatalog = async () => {
+    try {
+      const data = await subscriptionsApi.provisionDefaultCatalog(true)
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Default seeker/provider plans were provisioned and mapped.",
+        })
+        fetchPlans()
+      } else {
+        throw new Error(data.message)
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to provision default catalog",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleCreateAddOn = async () => {
+    try {
+      const payload = {
+        ...addOnForm,
+        savings: addOnForm.savings || undefined,
+      }
+      const data = await subscriptionsApi.createAddOnPackage(payload)
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Add-on package created",
+        })
+        setAddOnForm({
+          name: "",
+          credits: 10,
+          price: 5,
+          savings: "",
+          isActive: true,
+          priority: 0,
+        })
+        fetchAddOns()
+      } else {
+        throw new Error(data.message)
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create add-on package",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleToggleAddOn = async (item: AddOnPackage) => {
+    try {
+      const data = await subscriptionsApi.updateAddOnPackage(item._id, { isActive: !item.isActive })
+      if (data.success) {
+        fetchAddOns()
+      } else {
+        throw new Error(data.message)
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update add-on package",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteAddOn = async (packageId: string) => {
+    if (!confirm("Delete this add-on package?")) return
+    try {
+      const data = await subscriptionsApi.deleteAddOnPackage(packageId)
+      if (data.success) {
+        toast({
+          title: "Success",
+          description: "Add-on package deleted",
+        })
+        fetchAddOns()
+      } else {
+        throw new Error(data.message)
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete add-on package",
         variant: "destructive",
       })
     }
@@ -292,10 +419,15 @@ export default function PackagesPage() {
                   Provider Plans
                 </TabsTrigger>
               </TabsList>
-              <Button onClick={handleCreatePlan}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Plan
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={handleProvisionDefaultCatalog}>
+                  Provision Defaults
+                </Button>
+                <Button onClick={handleCreatePlan}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Plan
+                </Button>
+              </div>
             </div>
 
             <TabsContent value={activeTab} className="mt-6">
@@ -333,7 +465,7 @@ export default function PackagesPage() {
 
                         <div className="space-y-2">
                           <div className="text-3xl font-bold text-foreground">
-                            ₹{plan.price}
+                            ${plan.price}
                             <span className="text-sm font-normal text-muted-foreground">
                               /{plan.billingCycle}
                             </span>
@@ -511,6 +643,79 @@ export default function PackagesPage() {
             </TabsContent>
           </Tabs>
 
+          <Card className="p-6">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold">Add-on Credit Packages (USD)</h3>
+                <p className="text-sm text-muted-foreground">
+                  Configure one-time credit packs. Credits expire with the current plan cycle.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-5">
+                <Input
+                  placeholder="Package name"
+                  value={addOnForm.name}
+                  onChange={(e) => setAddOnForm({ ...addOnForm, name: e.target.value })}
+                />
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="Credits"
+                  value={addOnForm.credits}
+                  onChange={(e) => setAddOnForm({ ...addOnForm, credits: Number(e.target.value) })}
+                />
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="Price ($)"
+                  value={addOnForm.price}
+                  onChange={(e) => setAddOnForm({ ...addOnForm, price: Number(e.target.value) })}
+                />
+                <Input
+                  placeholder="Savings label (optional)"
+                  value={addOnForm.savings}
+                  onChange={(e) => setAddOnForm({ ...addOnForm, savings: e.target.value })}
+                />
+                <Button onClick={handleCreateAddOn}>Create Add-on</Button>
+              </div>
+
+              <div className="space-y-2">
+                {addOnPackages.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No add-on packages configured yet.</p>
+                ) : (
+                  addOnPackages.map((item) => (
+                    <div
+                      key={item._id}
+                      className="flex items-center justify-between rounded border p-3 text-sm"
+                    >
+                      <div>
+                        <div className="font-medium">
+                          {item.name} - {item.credits} credits - ${item.price}
+                        </div>
+                        <div className="text-muted-foreground">
+                          {item.currency} {item.savings ? `- ${item.savings}` : ""}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={item.isActive ? "default" : "secondary"}>
+                          {item.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <Button variant="outline" onClick={() => handleToggleAddOn(item)}>
+                          {item.isActive ? "Deactivate" : "Activate"}
+                        </Button>
+                        <Button variant="outline" onClick={() => handleDeleteAddOn(item._id)}>
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </Card>
+
           {/* Plan Dialog */}
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[600px]">
@@ -563,6 +768,33 @@ export default function PackagesPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="tier">Plan Tier</Label>
+                    <Select
+                      value={planForm.tier}
+                      onValueChange={(value: "free" | "advanced" | "small" | "mid" | "enterprise") =>
+                        setPlanForm({ ...planForm, tier: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="free">Free</SelectItem>
+                        <SelectItem value="advanced">Advanced</SelectItem>
+                        <SelectItem value="small">Small</SelectItem>
+                        <SelectItem value="mid">Mid</SelectItem>
+                        <SelectItem value="enterprise">Enterprise</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="currency">Currency</Label>
+                    <Input id="currency" value={planForm.currency} disabled />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="description">Description</Label>
                   <Textarea
@@ -576,7 +808,7 @@ export default function PackagesPage() {
                 {/* Pricing */}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="price">Price (₹)</Label>
+                    <Label htmlFor="price">Price ($)</Label>
                     <Input
                       id="price"
                       type="number"
@@ -591,7 +823,11 @@ export default function PackagesPage() {
                     <Select
                       value={planForm.billingCycle}
                       onValueChange={(value: "monthly" | "yearly" | "lifetime") =>
-                        setPlanForm({ ...planForm, billingCycle: value })
+                        setPlanForm({
+                          ...planForm,
+                          billingCycle: value,
+                          intervalMonths: value === "yearly" ? 12 : 1,
+                        })
                       }
                     >
                       <SelectTrigger>

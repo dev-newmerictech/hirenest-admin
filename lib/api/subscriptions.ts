@@ -1,5 +1,5 @@
 import { api } from './client';
-import type { AssignPlanRequest, SubscriptionPlan } from '../types';
+import type { AddOnPackage, AssignPlanRequest, SubscriptionPlan } from '../types';
 
 export interface SubscriptionsListResponse {
   success: boolean;
@@ -49,9 +49,27 @@ export const subscriptionsApi = {
   updateStatus: async (profileId: string, status: string) =>
     api.put(`/admin/subscription/subscriptions/${profileId}/status`, { status }),
 
+  syncSubscriptionFromRazorpay: async (profileId: string) =>
+    api.post(`/admin/subscription/subscriptions/${profileId}/sync-razorpay`, {}),
+
   assignPlan: async (profileId: string, payload: AssignPlanRequest) =>
     api.post(`/admin/subscription/subscriptions/${profileId}/assign-plan`, payload),
 
+  provisionDefaultCatalog: async (provisionRazorpay: boolean = true) =>
+    api.post('/admin/subscription/plans/provision-default', { provisionRazorpay }),
+
   getAnalytics: async () => api.get('/admin/subscription/analytics'),
+
+  getAddOnPackages: async (): Promise<{ success: boolean; data: AddOnPackage[] }> =>
+    api.get('/admin/subscription/addons'),
+
+  createAddOnPackage: async (payload: Partial<AddOnPackage>) =>
+    api.post('/admin/subscription/addons', payload),
+
+  updateAddOnPackage: async (packageId: string, payload: Partial<AddOnPackage>) =>
+    api.put(`/admin/subscription/addons/${packageId}`, payload),
+
+  deleteAddOnPackage: async (packageId: string) =>
+    api.delete(`/admin/subscription/addons/${packageId}`),
 };
 
