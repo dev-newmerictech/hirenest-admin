@@ -386,42 +386,52 @@ export default function JobsPage() {
           )}
         </div>
 
-        {/* Detail Drawer */}
+        {/* Detail Drawer - READ-ONLY MODE: was title="Edit Job" */}
         {selectedJob && (
-          <DetailDrawer open={isDetailOpen} onOpenChange={setIsDetailOpen} title="Edit Job">
+          <DetailDrawer open={isDetailOpen} onOpenChange={setIsDetailOpen} title="Job Details">
             <div className="grid gap-6">
               <div className="space-y-2">
                 <Label htmlFor="title">Job Title</Label>
+                {/* READ-ONLY MODE: Editable input commented out
                 <Input
                   id="title"
                   value={formData.title || ""}
                   onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   disabled={isUpdating}
                 />
+                */}
+                <p className="text-sm font-medium">{selectedJob.title}</p>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="companyName">Company</Label>
+                {/* READ-ONLY MODE: Disabled input commented out
                 <Input
                   id="companyName"
                   value={formData.companyName || ""}
                   disabled
                   className="bg-muted"
                 />
+                */}
+                <p className="text-sm font-medium">{selectedJob.companyName}</p>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="location">Location</Label>
+                {/* READ-ONLY MODE: Disabled input commented out
                 <Input
                   id="location"
                   value={formData.location || ""}
                   disabled
                   className="bg-muted"
                 />
+                */}
+                <p className="text-sm font-medium">{selectedJob.location}</p>
               </div>
               
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
+                {/* READ-ONLY MODE: Editable textarea commented out
                 <Textarea
                   id="description"
                   value={formData.description || ""}
@@ -429,6 +439,8 @@ export default function JobsPage() {
                   rows={5}
                   disabled={isUpdating}
                 />
+                */}
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{selectedJob.description}</p>
               </div>
               
               <div className="space-y-2">
@@ -462,6 +474,7 @@ export default function JobsPage() {
                 </div>
               )}
 
+              {/* READ-ONLY MODE: Action buttons commented out
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
                 <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isUpdating}>
                   Cancel
@@ -470,6 +483,7 @@ export default function JobsPage() {
                   {isUpdating ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
+              */}
             </div>
           </DetailDrawer>
         )}

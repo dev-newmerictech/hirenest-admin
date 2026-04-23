@@ -423,34 +423,43 @@ export default function CompaniesPage() {
           )}
         </div>
 
-        {/* Detail Drawer */}
+          {/* Detail Drawer - READ-ONLY MODE: was title="Edit Company" */}
         {selectedCompany && (
-          <DetailDrawer open={isDetailOpen} onOpenChange={setIsDetailOpen} title="Edit Company">
+          <DetailDrawer open={isDetailOpen} onOpenChange={setIsDetailOpen} title="Company Details">
             <div className="grid gap-6">
               <div className="space-y-2">
                 <Label htmlFor="name">Company Name</Label>
+                {/* READ-ONLY MODE: Editable input commented out
                 <Input
                   id="name"
                   value={formData.name || ""}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
+                */}
+                <p className="text-sm font-medium">{selectedCompany.name}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
+                {/* READ-ONLY MODE: Editable input commented out
                 <Input
                   id="email"
                   type="email"
                   value={formData.email || ""}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
+                */}
+                <p className="text-sm font-medium">{selectedCompany.email}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="industry">Industry</Label>
+                {/* READ-ONLY MODE: Editable input commented out
                 <Input
                   id="industry"
                   value={formData.industry || ""}
                   onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                 />
+                */}
+                <p className="text-sm font-medium">{selectedCompany.industry}</p>
               </div>
               <div className="space-y-2">
                 <Label>Registration Date</Label>
@@ -540,6 +549,7 @@ export default function CompaniesPage() {
                 </div>
               )}
 
+              {/* READ-ONLY MODE: Action buttons commented out
               <div className="flex justify-end gap-3 pt-4 border-t border-border">
                 <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isUpdating}>
                   Cancel
@@ -548,6 +558,7 @@ export default function CompaniesPage() {
                   {isUpdating ? "Saving..." : "Save Changes"}
                 </Button>
               </div>
+              */}
             </div>
           </DetailDrawer>
         )}

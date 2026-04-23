@@ -35,7 +35,8 @@ export async function apiClient<T = any>(
     }
   }
 
-  const url = endpoint.startsWith('http') ? endpoint : `https://api.hirenest.ai${endpoint}`;
+  const baseUrl = API_URL || 'http://localhost:5001';
+  const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
 
   try {
     const response = await fetch(url, config);
