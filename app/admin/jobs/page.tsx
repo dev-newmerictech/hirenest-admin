@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
 import { PageHeader } from "@/components/admin/page-header"
@@ -28,8 +28,10 @@ import {
 } from "@/lib/store/jobPostsSlice"
 import type { Job, Company } from "@/lib/types"
 import { companiesApi, transformCompany } from "@/lib/api/companies"
+import { jobPostsApi, transformJobPost } from "@/lib/api/jobPosts"
 import { format } from "date-fns"
 import { MoreVertical, Eye, XCircle, Trash2 } from "lucide-react"
+import { useSearchParams } from "next/navigation"
 
 export default function JobsPage() {
   const { toast } = useToast()
@@ -52,6 +54,34 @@ export default function JobsPage() {
       company: selectedCompanyId !== 'all' ? selectedCompanyId : undefined 
     }))
   }, [dispatch, currentPage, selectedCompanyId])
+
+  // Deep-link support: auto-open a job's drawer when navigated with ?highlight=<jobId>
+  const searchParams = useSearchParams()
+  const highlightJobId = searchParams.get("highlight")
+  const [highlightHandled, setHighlightHandled] = useState(false)
+
+  useEffect(() => {
+    if (!highlightJobId || highlightHandled) return
+
+    const openHighlightedJob = async () => {
+      try {
+        const res = await jobPostsApi.getJobPost(highlightJobId)
+        const jobData = (res?.data as any)?.jobPost || res?.data
+        if (jobData) {
+          const job = transformJobPost(jobData)
+          setSelectedJob(job)
+          setFormData(job)
+          setIsDetailOpen(true)
+        }
+      } catch (err) {
+        // Job may have been deleted — silently ignore
+      } finally {
+        setHighlightHandled(true)
+      }
+    }
+
+    openHighlightedJob()
+  }, [highlightJobId, highlightHandled])
 
   // Load companies for the company filter select
   useEffect(() => {
