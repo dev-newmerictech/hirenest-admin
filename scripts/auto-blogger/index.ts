@@ -60,32 +60,27 @@ interface BlogPost {
   published: boolean;
   tags: string[];
   readTime: string;
-  authorName: string;
+  authorName?: string;
 }
 
 // ─── Topic Generation ────────────────────────────────────────────────────────
 
 const TOPIC_CATEGORIES = [
-  "AI and automation in recruitment",
-  "Remote work and hybrid workplace trends",
-  "Employee retention strategies",
-  "Interview tips for job seekers",
-  "Resume building and optimization",
-  "Workplace diversity and inclusion",
-  "Salary negotiation techniques",
-  "Employer branding and talent acquisition",
-  "Gig economy and freelancing trends",
-  "Upskilling and career development",
-  "HR technology and tools",
-  "Job market trends and predictions",
-  "Work-life balance strategies",
-  "Company culture and employee engagement",
-  "Startup hiring challenges and solutions",
-  "Campus recruitment and fresher hiring",
-  "Skill-based hiring vs degree-based hiring",
-  "The future of work and Gen Z workforce",
-  "Performance management best practices",
-  "Employee mental health and wellbeing",
+  "AI and automation platforms in recruitment",
+  "Next-generation HR technology and software stacks",
+  "Modern software tools shaping hybrid and remote work environments",
+  "Predictive analytics and data-driven talent acquisition",
+  "Digital upskilling and future-proofing tech careers",
+  "Leveraging artificial intelligence for automated candidate screening",
+  "Cloud-based workspace platforms and digital collaboration tech",
+  "Skill-based tech assessment platforms vs traditional credentialing",
+  "Optimizing recruitment pipelines with machine learning algorithms",
+  "Cybersecurity and privacy considerations in HR software systems",
+  "Emerging developer tools and impact on tech hiring strategies",
+  "Tech enterprise strategies for integrating AI assistants in workflows",
+  "Automated scheduling and onboarding software platforms",
+  "Evaluating code analysis tools for tech talent assessment",
+  "Digital platforms driving the modern gig economy and distributed teams",
 ];
 
 /**
@@ -108,12 +103,16 @@ async function generateTopics(
   const shuffled = [...TOPIC_CATEGORIES].sort(() => Math.random() - 0.5);
   const selectedCategories = shuffled.slice(0, Math.min(count, shuffled.length));
 
+  // Include a shifting random seed to ensure completely fresh outputs day after day
+  const randomSeed = Math.random().toString(36).substring(2, 8);
+
   const prompt = `You are a content strategist for Hirenest, an AI-powered job platform that connects job seekers with employers.
 
-Today is ${today}.
+Today is ${today}. Generation Seed Context: [${randomSeed}]
 
 Generate exactly ${count} unique, specific, and trending blog post titles. Each title should be:
 - Highly specific (not generic like "tips for interviews")
+- Completely fresh and distinct from any typical standard articles you generate
 - Timely and relevant to current industry trends in ${new Date().getFullYear()}
 - SEO-friendly and compelling to click
 - Covering different aspects of: ${selectedCategories.join(", ")}
@@ -158,31 +157,29 @@ async function generateBlogPost(
 
   const today = new Date().toISOString().split("T")[0];
 
-  const prompt = `You are an expert content writer for Hirenest (hirenest.ai), an AI-powered platform connecting job seekers with employers.
+  const prompt = `You are an expert technical content writer and software platform analyst for Hirenest (hirenest.ai), an AI-powered platform connecting tech talent with top technology-focused employers.
 
-Write a comprehensive, SEO-optimized blog post about: "${topic}"
+Write a deeply comprehensive, highly granular, SEO-optimized technical blog post about: "${topic}"
 
 STRICT REQUIREMENTS:
-1. Length: 1200-2000 words
-2. Tone: Professional but approachable, data-driven where possible
+1. Target Length: 2000-2500 words. Provide deep technical walkthroughs, concrete architectural considerations, framework evaluations, and clear conceptual breakdowns.
+2. Tone: Authoritative, engineering-focused, professional, and data-driven.
 3. Structure:
-   - Start with a compelling introduction (no heading for intro)
-   - Use ## for main section headings (3-5 sections)
-   - Use ### for subsection headings where appropriate
-   - Include bullet points and numbered lists where relevant
-   - End with a conclusion section and a subtle call-to-action mentioning Hirenest
-4. Include practical, actionable advice
-5. Reference current year (${new Date().getFullYear()}) trends where appropriate
-6. DO NOT use any frontmatter or metadata — just the raw markdown content
-7. DO NOT start with the title as a heading — I will add it separately
+   - Start with a highly engaging technical introduction (no heading for intro)
+   - Use ## for main section headings (4-6 comprehensive sections)
+   - Use ### for granular subsection breakdowns exploring specific implementation strategies, code architecture impacts, or platform integrations
+   - Include clear bullet points and structured comparisons where helpful
+   - End with a conclusion section synthesizing the technical takeaways and a subtle call-to-action mentioning Hirenest
+4. Reference current year (${new Date().getFullYear()}) software methodologies and technology stacks
+5. DO NOT use any frontmatter or markdown metadata headers — just raw content
+6. DO NOT start with the title as a heading — I will add it separately
 
 Also provide the following metadata in a JSON block at the VERY END of your response, after all the blog content:
 
 %%%METADATA%%%
 {
-  "description": "A 150-160 character SEO meta description for this post",
-  "tags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-  "readTime": "X min read"
+  "description": "A 150-160 character technical SEO meta description summarizing the stack or platform insights",
+  "readTime": "8 min read"
 }
 %%%END_METADATA%%%`;
 
@@ -190,8 +187,7 @@ Also provide the following metadata in a JSON block at the VERY END of your resp
 
   // Extract metadata from the response
   let description = "";
-  let tags: string[] = [];
-  let readTime = "5 min read";
+  let readTime = "8 min read";
   let content = response;
 
   const metadataMatch = response.match(
@@ -202,8 +198,7 @@ Also provide the following metadata in a JSON block at the VERY END of your resp
     try {
       const metadata = JSON.parse(metadataMatch[1].trim());
       description = metadata.description || "";
-      tags = Array.isArray(metadata.tags) ? metadata.tags : [];
-      readTime = metadata.readTime || "5 min read";
+      readTime = metadata.readTime || "8 min read";
     } catch {
       log(`    ⚠ Could not parse metadata, using defaults`, "yellow");
     }
@@ -224,16 +219,16 @@ Also provide the following metadata in a JSON block at the VERY END of your resp
   const post: BlogPost = {
     slug,
     title: topic,
-    description: description || `Learn about ${topic} and discover actionable insights on Hirenest.`,
+    description: description || `Deep dive into ${topic} with authoritative engineering insights on Hirenest.`,
     content: fullContent,
     date: today,
     published: true,
-    tags,
+    tags: [], // Intentionally empty to prevent clickable UI tags
     readTime,
-    authorName: "Hirenest Team",
+    // authorName intentionally omitted to prevent clickable author routing / 404s
   };
 
-  log(`    ✓ Generated (${post.content.length} chars, ${post.tags.length} tags)`, "green");
+  log(`    ✓ Generated (${post.content.length} chars)`, "green");
   return post;
 }
 
