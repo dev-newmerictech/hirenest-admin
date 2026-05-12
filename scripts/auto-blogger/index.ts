@@ -14,8 +14,8 @@
  *   npx tsx scripts/auto-blogger/index.ts --count 5   (override post count)
  *
  * Required Environment Variables:
- *   OPENROUTER_API_KEY       — OpenRouter API key
- *   NEXT_PUBLIC_CONVEX_URL   — Convex deployment URL
+ *   OPENAI_API_KEY or OPENROUTER_API_KEY — API key for generation
+ *   NEXT_PUBLIC_CONVEX_URL               — Convex deployment URL
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -25,7 +25,9 @@
 const DEFAULT_POST_COUNT = 15;
 const DELAY_BETWEEN_POSTS_MS = 3_000; // 3 seconds between posts
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
-const AI_MODEL = "google/gemini-2.5-flash"; // Free tier model on OpenRouter
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const OPENROUTER_MODEL = "google/gemini-2.5-flash"; // Free tier model on OpenRouter
+const OPENAI_MODEL = "gpt-4o-mini"; // Cost-effective fast model on OpenAI
 const MAX_RETRIES = 2;
 
 // ─── Terminal Colors ─────────────────────────────────────────────────────────
@@ -119,7 +121,7 @@ Generate exactly ${count} unique, specific, and trending blog post titles. Each 
 Return ONLY a JSON array of strings, with no other text, markdown, or explanation. Example:
 ["Title One Here", "Title Two Here"]`;
 
-  const response = await callOpenRouter(apiKey, prompt, 0.9);
+  const response = await callAI(apiKey, prompt, 0.9);
 
   try {
     // Extract JSON array from response (handle potential markdown wrapping)
@@ -184,7 +186,7 @@ Also provide the following metadata in a JSON block at the VERY END of your resp
 }
 %%%END_METADATA%%%`;
 
-  const response = await callOpenRouter(apiKey, prompt, 0.7);
+  const response = await callAI(apiKey, prompt, 0.7);
 
   // Extract metadata from the response
   let description = "";
@@ -235,40 +237,49 @@ Also provide the following metadata in a JSON block at the VERY END of your resp
   return post;
 }
 
-// ─── OpenRouter API Client ───────────────────────────────────────────────────
+// ─── AI API Client ───────────────────────────────────────────────────────────
 
-async function callOpenRouter(
+async function callAI(
   apiKey: string,
   prompt: string,
   temperature: number = 0.7
 ): Promise<string> {
+  const isOpenRouter = apiKey.startsWith("sk-or-");
+  const apiUrl = isOpenRouter ? OPENROUTER_API_URL : OPENAI_API_URL;
+  const model = isOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL;
+
+  const headers: Record<string, string> = {
+    Authorization: `Bearer ${apiKey}`,
+    "Content-Type": "application/json",
+  };
+
+  if (isOpenRouter) {
+    headers["HTTP-Referer"] = "https://hirenest.ai";
+    headers["X-Title"] = "Hirenest Auto-Blogger";
+  }
+
+  const bodyPayload: any = {
+    model,
+    messages: [{ role: "user", content: prompt }],
+    temperature,
+  };
+
+  if (isOpenRouter) {
+    bodyPayload.max_tokens = 4096;
+  }
+
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(OPENROUTER_API_URL, {
+      const response = await fetch(apiUrl, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "HTTP-Referer": "https://hirenest.ai",
-          "X-Title": "Hirenest Auto-Blogger",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: AI_MODEL,
-          messages: [
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          temperature,
-          max_tokens: 4096,
-        }),
+        headers,
+        body: JSON.stringify(bodyPayload),
       });
 
       if (!response.ok) {
         const errorBody = await response.text();
         throw new Error(
-          `OpenRouter API error (${response.status}): ${errorBody}`
+          `${isOpenRouter ? "OpenRouter" : "OpenAI"} API error (${response.status}): ${errorBody}`
         );
       }
 
@@ -276,7 +287,7 @@ async function callOpenRouter(
       const text = data?.choices?.[0]?.message?.content;
 
       if (!text) {
-        throw new Error("Empty response from OpenRouter");
+        throw new Error(`Empty response from ${isOpenRouter ? "OpenRouter" : "OpenAI"}`);
       }
 
       return text;
@@ -415,11 +426,11 @@ async function main() {
   }
 
   // ── Validate Environment ──
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
   if (!apiKey) {
-    log("Error: OPENROUTER_API_KEY environment variable is not set", "red");
+    log("Error: OPENAI_API_KEY or OPENROUTER_API_KEY environment variable is not set", "red");
     log("Set it in your .env file or GitHub Actions secrets", "yellow");
     process.exit(1);
   }
@@ -433,9 +444,12 @@ async function main() {
     process.exit(1);
   }
 
+  const isOpenRouter = apiKey.startsWith("sk-or-");
+  const displayModel = isOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL;
+
   log(`Configuration:`, "cyan");
   log(`  Posts to generate: ${postCount}`, "gray");
-  log(`  AI Model:          ${AI_MODEL}`, "gray");
+  log(`  AI Model:          ${displayModel}`, "gray");
   log(`  Mode:              ${dryRun ? "DRY RUN (no publishing)" : "LIVE"}`, dryRun ? "yellow" : "green");
   log(`  Convex URL:        ${convexUrl ? convexUrl.substring(0, 40) + "..." : "N/A"}`, "gray");
   console.log("");
