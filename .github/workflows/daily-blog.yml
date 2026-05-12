@@ -1,0 +1,77 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Hirenest Auto-Blogger — Scheduled Blog Generation & Publishing
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This workflow runs once daily at 10:00 AM IST (04:30 UTC) and generates
+# 15 blog posts using OpenRouter AI, then publishes them to the Convex database.
+#
+# Manual Trigger: Go to Actions tab → "Daily Blog Publisher" → "Run workflow"
+#
+# Required Repository Secrets:
+#   OPENROUTER_API_KEY       — OpenRouter API key (uses free Gemini 2.5 Flash)
+#   NEXT_PUBLIC_CONVEX_URL   — Convex deployment URL (from hirenest-website)
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Daily Blog Publisher
+
+on:
+  # ── Scheduled Run: Every day at 10:00 AM IST (04:30 UTC) ──
+  schedule:
+    - cron: "30 4 * * *"
+
+  # ── Manual Trigger: Click "Run workflow" in GitHub Actions tab ──
+  workflow_dispatch:
+    inputs:
+      post_count:
+        description: "Number of blog posts to generate (1-30)"
+        required: false
+        default: "15"
+        type: string
+      dry_run:
+        description: "Dry run (generate but don't publish)"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  generate-and-publish:
+    name: Generate & Publish Blog Posts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      # ── 1. Checkout this branch ──
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Set up Node.js ──
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      # ── 3. Install tsx (TypeScript runner) ──
+      - name: Install dependencies
+        run: npm install -g tsx
+
+      # ── 4. Run the auto-blogger script ──
+      - name: Run Auto-Blogger
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
+        run: |
+          POST_COUNT="${{ github.event.inputs.post_count || '15' }}"
+          DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
+
+          ARGS="--count $POST_COUNT"
+          if [ "$DRY_RUN" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+
+          echo "═══════════════════════════════════════════════"
+          echo "  🚀 Starting Hirenest Auto-Blogger"
+          echo "  Posts: $POST_COUNT | Dry Run: $DRY_RUN"
+          echo "═══════════════════════════════════════════════"
+
+          tsx scripts/auto-blogger/index.ts $ARGS
