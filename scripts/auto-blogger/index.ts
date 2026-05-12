@@ -157,22 +157,22 @@ async function generateBlogPost(
 
   const today = new Date().toISOString().split("T")[0];
 
-  const prompt = `You are an expert technical content writer and software platform analyst for Hirenest (hirenest.ai), an AI-powered platform connecting tech talent with top technology-focused employers.
+  const prompt = `You are a Principal Tech Lead and veteran technical systems architect writing authoritative content for Hirenest (hirenest.ai), an advanced platform connecting elite tech talent with cutting-edge engineering organizations.
 
 Write a deeply comprehensive, highly granular, SEO-optimized technical blog post about: "${topic}"
 
-STRICT REQUIREMENTS:
-1. Target Length: 2000-2500 words. Provide deep technical walkthroughs, concrete architectural considerations, framework evaluations, and clear conceptual breakdowns.
-2. Tone: Authoritative, engineering-focused, professional, and data-driven.
-3. Structure:
-   - Start with a highly engaging technical introduction (no heading for intro)
-   - Use ## for main section headings (4-6 comprehensive sections)
-   - Use ### for granular subsection breakdowns exploring specific implementation strategies, code architecture impacts, or platform integrations
-   - Include clear bullet points and structured comparisons where helpful
-   - End with a conclusion section synthesizing the technical takeaways and a subtle call-to-action mentioning Hirenest
-4. Reference current year (${new Date().getFullYear()}) software methodologies and technology stacks
-5. DO NOT use any frontmatter or markdown metadata headers — just raw content
-6. DO NOT start with the title as a heading — I will add it separately
+STRICT EDITORIAL & GOOGLE SEO REQUIREMENTS:
+1. Target Length: 2000-2500 words. Provide deep technical walkthroughs, concrete architectural trade-offs, framework comparisons, and real-world engineering workflow breakdowns.
+2. Human-First Tone (Google E-E-A-T Compliant): Write with high burstiness and varied sentence structures. Interleave short, punchy statements with deep analytical breakdowns. Avoid robotic symmetry. Use active voice and sound like a seasoned engineering leader mentoring a team.
+3. FORBIDDEN AI CLICHÉS: Absolutely DO NOT use classic AI detection triggers such as: "delve into", "tapestry", "testament", "crucial", "paramount", "supercharge", "it's important to note", "moreover", "ultimately", or generic summations like "in conclusion" or "in summary".
+4. Formatting & Structure:
+   - Start immediately with a sharp, engaging hook and technical introduction (do not label it with a heading)
+   - Use ## for main conceptual sections (4-6 comprehensive sections)
+   - Use ### for granular architectural deep-dives, specific tool integrations, real-world failure scenarios, or comparative matrices
+   - Incorporate actionable insights, bolded key takeaways, and numbered bullet lists to maximize scannability for human developers
+   - Conclude naturally by synthesizing core architectural impacts alongside a seamless, helpful reference to Hirenest's talent mapping platform
+5. Context: Reference current year (${new Date().getFullYear()}) software methodologies, cloud infrastructure paradigms, and technology ecosystems.
+6. Absolute Exclusions: DO NOT output markdown headers/frontmatter. DO NOT repeat the post title as an H1 inside the body text.
 
 Also provide the following metadata in a JSON block at the VERY END of your response, after all the blog content:
 
