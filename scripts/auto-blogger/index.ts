@@ -26,8 +26,8 @@ const DEFAULT_POST_COUNT = 15;
 const DELAY_BETWEEN_POSTS_MS = 3_000; // 3 seconds between posts
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const OPENROUTER_MODEL = "google/gemini-2.5-flash"; // Free tier model on OpenRouter
-const OPENAI_MODEL = "gpt-4o-mini"; // Cost-effective fast model on OpenAI
+const OPENROUTER_MODEL = "google/gemma-3-27b-it:free"; // FREE model on OpenRouter — $0 cost
+const OPENAI_MODEL = "gpt-4o-mini"; // Fallback if no OpenRouter key
 const MAX_RETRIES = 2;
 
 // ─── Terminal Colors ─────────────────────────────────────────────────────────
@@ -78,8 +78,54 @@ const TOPIC_CATEGORIES = [
   "Cybersecurity ecosystem shifts, devops updates, and platform resilience news",
 ];
 
+// ─── Live News Fetcher (Google News RSS — free, no API key) ──────────────────
+
+/**
+ * Fetch real trending tech headlines from Google News RSS.
+ * Returns an array of headline strings. Falls back to empty array on failure.
+ */
+async function fetchLiveHeadlines(maxHeadlines: number = 15): Promise<string[]> {
+  const RSS_URL = "https://news.google.com/rss/search?q=technology+OR+software+OR+AI+OR+developer&hl=en-US&gl=US&ceid=US:en";
+
+  try {
+    log("Fetching live tech headlines from Google News...", "cyan");
+    const response = await fetch(RSS_URL, {
+      headers: { "User-Agent": "Hirenest-AutoBlogger/1.0" },
+    });
+
+    if (!response.ok) {
+      throw new Error(`RSS fetch failed: ${response.status}`);
+    }
+
+    const xml = await response.text();
+
+    // Simple XML title extraction — no extra dependencies needed
+    const titles: string[] = [];
+    // First extract all <item>...</item> blocks, then get the <title> from each
+    const itemBlocks = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
+    for (const block of itemBlocks) {
+      if (titles.length >= maxHeadlines) break;
+      // Match both CDATA-wrapped and plain titles
+      const titleMatch = block.match(/<title>(?:<!\[CDATA\[)?(.*?)(?:\]\]>)?<\/title>/);
+      if (!titleMatch) continue;
+      const rawTitle = titleMatch[1].trim();
+      if (rawTitle.length <= 10) continue;
+      // Strip " - Source Name" suffix that Google News appends
+      const cleaned = rawTitle.replace(/\s*-\s*[^-]+$/, "").trim();
+      if (cleaned.length > 10) titles.push(cleaned);
+    }
+
+    log(`✓ Fetched ${titles.length} live headlines`, "green");
+    return titles;
+  } catch (err: any) {
+    log(`⚠ Could not fetch live news (${err.message}), will use AI-only topics`, "yellow");
+    return [];
+  }
+}
+
 /**
  * Generate a list of blog topics using AI for today's posts.
+ * Pulls real trending headlines to ground topics in actual current events.
  */
 async function generateTopics(
   apiKey: string,
@@ -94,6 +140,9 @@ async function generateTopics(
     day: "numeric",
   });
 
+  // Fetch real headlines for grounding
+  const liveHeadlines = await fetchLiveHeadlines(15);
+
   // Pick random categories to ensure variety
   const shuffled = [...TOPIC_CATEGORIES].sort(() => Math.random() - 0.5);
   const selectedCategories = shuffled.slice(0, Math.min(count, shuffled.length));
@@ -101,11 +150,18 @@ async function generateTopics(
   // Include a shifting random seed to ensure completely fresh outputs day after day
   const randomSeed = Math.random().toString(36).substring(2, 8);
 
+  // Build the live news context block
+  const newsContext = liveHeadlines.length > 0
+    ? `\n\nHere are REAL trending technology headlines from today. Use these as inspiration to create titles grounded in actual current events:\n${liveHeadlines.map((h, i) => `${i + 1}. ${h}`).join("\n")}\n\nBase your titles on these real stories — expand them into deeper, more analytical angles. Do NOT copy them verbatim.`
+    : "";
+
   const prompt = `You are a top-tier technology news editor and enterprise software strategist for Hirenest (hirenest.ai).
 
 Today is ${today}. Generation Seed Context: [${randomSeed}]
+${newsContext}
 
 Generate exactly ${count} highly clickable, viral, and authoritative technology news or industry trend article titles. Each title should be:
+- Grounded in real, current tech events happening right now${liveHeadlines.length > 0 ? " (use the headlines above as a starting point)" : ""}
 - Focused on breaking tech developments, critical software industry shifts, developer tool evolutions, or cutting-edge enterprise strategies
 - Exceptionally timely and framed around major real-time movements in ${new Date().getFullYear()}
 - Highly specific and engaging to experienced software engineers, tech managers, and digital leaders
@@ -251,11 +307,8 @@ async function callAI(
     model,
     messages: [{ role: "user", content: prompt }],
     temperature,
+    max_tokens: isOpenRouter ? 8192 : 4096, // Higher for free models to fit 2500+ word blogs
   };
-
-  if (isOpenRouter) {
-    bodyPayload.max_tokens = 4096;
-  }
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -415,7 +468,8 @@ async function main() {
   }
 
   // ── Validate Environment ──
-  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENROUTER_API_KEY;
+  // Prefer OpenRouter (FREE models) over OpenAI (paid) to minimize cost
+  const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
   if (!apiKey) {
@@ -435,10 +489,12 @@ async function main() {
 
   const isOpenRouter = apiKey.startsWith("sk-or-");
   const displayModel = isOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL;
+  const costNote = isOpenRouter ? "FREE ($0)" : `PAID (~$0.002/post)`;
 
   log(`Configuration:`, "cyan");
   log(`  Posts to generate: ${postCount}`, "gray");
   log(`  AI Model:          ${displayModel}`, "gray");
+  log(`  Cost:              ${costNote}`, isOpenRouter ? "green" : "yellow");
   log(`  Mode:              ${dryRun ? "DRY RUN (no publishing)" : "LIVE"}`, dryRun ? "yellow" : "green");
   log(`  Convex URL:        ${convexUrl ? convexUrl.substring(0, 40) + "..." : "N/A"}`, "gray");
   console.log("");
