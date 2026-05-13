@@ -66,21 +66,16 @@ interface BlogPost {
 // ─── Topic Generation ────────────────────────────────────────────────────────
 
 const TOPIC_CATEGORIES = [
-  "AI and automation platforms in recruitment",
-  "Next-generation HR technology and software stacks",
-  "Modern software tools shaping hybrid and remote work environments",
-  "Predictive analytics and data-driven talent acquisition",
-  "Digital upskilling and future-proofing tech careers",
-  "Leveraging artificial intelligence for automated candidate screening",
-  "Cloud-based workspace platforms and digital collaboration tech",
-  "Skill-based tech assessment platforms vs traditional credentialing",
-  "Optimizing recruitment pipelines with machine learning algorithms",
-  "Cybersecurity and privacy considerations in HR software systems",
-  "Emerging developer tools and impact on tech hiring strategies",
-  "Tech enterprise strategies for integrating AI assistants in workflows",
-  "Automated scheduling and onboarding software platforms",
-  "Evaluating code analysis tools for tech talent assessment",
-  "Digital platforms driving the modern gig economy and distributed teams",
+  "Breaking technology news and shifting developer platform paradigms",
+  "Latest software engineering trends and modern infrastructure updates",
+  "Cutting-edge enterprise strategies for AI integrations and agentic workflows",
+  "Tech hiring surges, industry restructuring, and evolving developer job markets",
+  "Next-generation digital workspace platforms and remote software tools",
+  "Major cloud infrastructure releases and impact on modern scalable architectures",
+  "Developer productivity tools, code intelligence platforms, and ecosystem news",
+  "Evolving skill demands in software engineering and state-of-the-art tech roles",
+  "Deep dives into emerging programming frameworks and release cycles",
+  "Cybersecurity ecosystem shifts, devops updates, and platform resilience news",
 ];
 
 /**
@@ -106,16 +101,16 @@ async function generateTopics(
   // Include a shifting random seed to ensure completely fresh outputs day after day
   const randomSeed = Math.random().toString(36).substring(2, 8);
 
-  const prompt = `You are a content strategist for Hirenest, an AI-powered job platform that connects job seekers with employers.
+  const prompt = `You are a top-tier technology news editor and enterprise software strategist for Hirenest (hirenest.ai).
 
 Today is ${today}. Generation Seed Context: [${randomSeed}]
 
-Generate exactly ${count} unique, specific, and trending blog post titles. Each title should be:
-- Highly specific (not generic like "tips for interviews")
-- Completely fresh and distinct from any typical standard articles you generate
-- Timely and relevant to current industry trends in ${new Date().getFullYear()}
-- SEO-friendly and compelling to click
-- Covering different aspects of: ${selectedCategories.join(", ")}
+Generate exactly ${count} highly clickable, viral, and authoritative technology news or industry trend article titles. Each title should be:
+- Focused on breaking tech developments, critical software industry shifts, developer tool evolutions, or cutting-edge enterprise strategies
+- Exceptionally timely and framed around major real-time movements in ${new Date().getFullYear()}
+- Highly specific and engaging to experienced software engineers, tech managers, and digital leaders
+- SEO-optimized to capture organic search intent for modern tech stacks and workplace platforms
+- Covering aspects of: ${selectedCategories.join(", ")}
 
 Return ONLY a JSON array of strings, with no other text, markdown, or explanation. Example:
 ["Title One Here", "Title Two Here"]`;
@@ -157,29 +152,28 @@ async function generateBlogPost(
 
   const today = new Date().toISOString().split("T")[0];
 
-  const prompt = `You are a Principal Tech Lead and veteran technical systems architect writing authoritative content for Hirenest (hirenest.ai), an advanced platform connecting elite tech talent with cutting-edge engineering organizations.
+  const prompt = `You are an elite Technology News Correspondent and Principal Systems Architect writing highly viral, authoritative content for Hirenest (hirenest.ai), a premier platform mapping top developer talent to cutting-edge tech enterprises.
 
-Write a deeply comprehensive, highly granular, SEO-optimized technical blog post about: "${topic}"
+Write a deeply exhaustive, breaking news analysis and comprehensive technical deep dive about: "${topic}"
 
-STRICT EDITORIAL & GOOGLE SEO REQUIREMENTS:
-1. Target Length: 2000-2500 words. Provide deep technical walkthroughs, concrete architectural trade-offs, framework comparisons, and real-world engineering workflow breakdowns.
-2. Human-First Tone (Google E-E-A-T Compliant): Write with high burstiness and varied sentence structures. Interleave short, punchy statements with deep analytical breakdowns. Avoid robotic symmetry. Use active voice and sound like a seasoned engineering leader mentoring a team.
-3. FORBIDDEN AI CLICHÉS: Absolutely DO NOT use classic AI detection triggers such as: "delve into", "tapestry", "testament", "crucial", "paramount", "supercharge", "it's important to note", "moreover", "ultimately", or generic summations like "in conclusion" or "in summary".
-4. Formatting & Structure:
-   - Start immediately with a sharp, engaging hook and technical introduction (do not label it with a heading)
-   - Use ## for main conceptual sections (4-6 comprehensive sections)
-   - Use ### for granular architectural deep-dives, specific tool integrations, real-world failure scenarios, or comparative matrices
-   - Incorporate actionable insights, bolded key takeaways, and numbered bullet lists to maximize scannability for human developers
-   - Conclude naturally by synthesizing core architectural impacts alongside a seamless, helpful reference to Hirenest's talent mapping platform
-5. Context: Reference current year (${new Date().getFullYear()}) software methodologies, cloud infrastructure paradigms, and technology ecosystems.
+STRICT EDITORIAL, LENGTH & GOOGLE SEO REQUIREMENTS:
+1. Target Length & Absolute Depth: MINIMUM 2,500 words. To achieve this, expand every single section with dense, exhaustive prose, deep structural evaluations, concrete workflow examples, and granular technological breakdowns. Do not write summary fluff.
+2. Mandatory Multi-Level Structure:
+   - Start immediately with a sharp, high-burstiness news hook establishing the current stakes in ${new Date().getFullYear()} (do not label it with a heading).
+   - Create exactly 6 to 8 comprehensive main conceptual sections using ##.
+   - For EVERY single main section, you MUST create at least 3 distinct, granular subsections using ### exploring concrete frameworks, developer productivity metrics, architectural trade-offs, ecosystem impacts, or step-by-step engineering considerations.
+   - Integrate structured comparison bullet points and bold key takeaways to optimize developer scannability.
+3. Human-First Tone (Google E-E-A-T Compliant): Interleave short, punchy analytical sentences with longer, complex evaluations. Avoid recognizable AI symmetry. Use active voice and write with the authoritative pacing of a seasoned Tech Editor or CTO analyzing real-time market shifts.
+4. FORBIDDEN AI CLICHÉS: Absolutely DO NOT use classic AI triggers such as: "delve into", "tapestry", "testament", "crucial", "paramount", "supercharge", "it's important to note", "moreover", "ultimately", or boilerplate wrappers like "in conclusion" or "in summary".
+5. Context & Up-to-Date Authority: Frame the analysis around breaking technology releases, live industry restructurings, state-of-the-art developer toolchains, and modern cloud paradigms. Synthesize core takeaways naturally alongside a subtle, helpful reference to Hirenest's developer platform.
 6. Absolute Exclusions: DO NOT output markdown headers/frontmatter. DO NOT repeat the post title as an H1 inside the body text.
 
 Also provide the following metadata in a JSON block at the VERY END of your response, after all the blog content:
 
 %%%METADATA%%%
 {
-  "description": "A 150-160 character technical SEO meta description summarizing the stack or platform insights",
-  "readTime": "8 min read"
+  "description": "A 150-160 character highly engaging technical SEO meta description optimized for Google Search",
+  "readTime": "10 min read"
 }
 %%%END_METADATA%%%`;
 
