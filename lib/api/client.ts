@@ -1,7 +1,6 @@
 // API client with authentication support
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
-
+import { API_URL } from './config';
 interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
 }
@@ -35,8 +34,7 @@ export async function apiClient<T = any>(
     }
   }
 
-  const baseUrl = API_URL || 'http://localhost:5001';
-  const url = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
 
   try {
     const response = await fetch(url, config);
