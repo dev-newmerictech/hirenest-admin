@@ -22,7 +22,7 @@ import { Save, RefreshCw, Video, FileText, HelpCircle, Rocket, Linkedin, Zap } f
 import type { CreditCostConfig } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://api.hirenest.ai"
+import { API_URL as API_BASE_URL } from "@/lib/api/config"
 
 const ACTION_TYPE_ICONS: Record<string, any> = {
   mcq_interview: HelpCircle,
