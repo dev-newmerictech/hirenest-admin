@@ -26,8 +26,10 @@ const DEFAULT_POST_COUNT = 15;
 const DELAY_BETWEEN_POSTS_MS = 3_000; // 3 seconds between posts
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const OPENROUTER_MODEL = "google/gemma-3-27b-it:free"; // FREE model on OpenRouter — $0 cost
-const OPENAI_MODEL = "gpt-4o-mini"; // Fallback if no OpenRouter key
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const GROQ_MODEL = "llama-3.3-70b-versatile"; // Extremely high quality, free, fast model
+const OPENROUTER_MODEL = "nvidia/nemotron-3-nano-30b-a3b:free"; // Best-in-class free model for long form
+const OPENAI_MODEL = "gpt-4o-mini"; // Fallback if no OpenRouter/Groq key
 const MAX_RETRIES = 2;
 
 // ─── Terminal Colors ─────────────────────────────────────────────────────────
@@ -289,9 +291,22 @@ async function callAI(
   prompt: string,
   temperature: number = 0.7
 ): Promise<string> {
-  const isOpenRouter = apiKey.startsWith("sk-or-");
-  const apiUrl = isOpenRouter ? OPENROUTER_API_URL : OPENAI_API_URL;
-  const model = isOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL;
+  const isGroq = apiKey.startsWith("gsk_");
+  const isOpenRouter = !isGroq && apiKey.startsWith("sk-or-");
+  
+  let apiUrl = OPENAI_API_URL;
+  let model = OPENAI_MODEL;
+  let maxTokens = 4096;
+
+  if (isGroq) {
+    apiUrl = GROQ_API_URL;
+    model = GROQ_MODEL;
+    maxTokens = 6000; // Groq limits
+  } else if (isOpenRouter) {
+    apiUrl = OPENROUTER_API_URL;
+    model = OPENROUTER_MODEL;
+    maxTokens = 8192;
+  }
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${apiKey}`,
@@ -307,7 +322,7 @@ async function callAI(
     model,
     messages: [{ role: "user", content: prompt }],
     temperature,
-    max_tokens: isOpenRouter ? 8192 : 4096, // Higher for free models to fit 2500+ word blogs
+    max_tokens: maxTokens, 
   };
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
@@ -320,8 +335,9 @@ async function callAI(
 
       if (!response.ok) {
         const errorBody = await response.text();
+        const providerName = isGroq ? "Groq" : (isOpenRouter ? "OpenRouter" : "OpenAI");
         throw new Error(
-          `${isOpenRouter ? "OpenRouter" : "OpenAI"} API error (${response.status}): ${errorBody}`
+          `${providerName} API error (${response.status}): ${errorBody}`
         );
       }
 
@@ -329,7 +345,8 @@ async function callAI(
       const text = data?.choices?.[0]?.message?.content;
 
       if (!text) {
-        throw new Error(`Empty response from ${isOpenRouter ? "OpenRouter" : "OpenAI"}`);
+        const providerName = isGroq ? "Groq" : (isOpenRouter ? "OpenRouter" : "OpenAI");
+        throw new Error(`Empty response from ${providerName}`);
       }
 
       return text;
@@ -468,12 +485,16 @@ async function main() {
   }
 
   // ── Validate Environment ──
-  // Prefer OpenRouter (FREE models) over OpenAI (paid) to minimize cost
-  const apiKey = process.env.OPENROUTER_API_KEY || process.env.OPENAI_API_KEY;
+  // Prefer Groq (FREE) over OpenRouter over OpenAI
+  const groqKey = process.env.GROQ_API_KEY;
+  const orKey = process.env.OPENROUTER_API_KEY;
+  const oaiKey = process.env.OPENAI_API_KEY;
+  
+  const apiKey = groqKey || orKey || oaiKey;
   const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
   if (!apiKey) {
-    log("Error: OPENAI_API_KEY or OPENROUTER_API_KEY environment variable is not set", "red");
+    log("Error: GROQ_API_KEY, OPENAI_API_KEY or OPENROUTER_API_KEY is not set", "red");
     log("Set it in your .env file or GitHub Actions secrets", "yellow");
     process.exit(1);
   }
@@ -487,9 +508,10 @@ async function main() {
     process.exit(1);
   }
 
-  const isOpenRouter = apiKey.startsWith("sk-or-");
-  const displayModel = isOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL;
-  const costNote = isOpenRouter ? "FREE ($0)" : `PAID (~$0.002/post)`;
+  const isGroq = !!groqKey;
+  const isOpenRouter = !isGroq && apiKey.startsWith("sk-or-");
+  const displayModel = isGroq ? GROQ_MODEL : (isOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL);
+  const costNote = isGroq || isOpenRouter ? "FREE ($0)" : `PAID (~$0.002/post)`;
 
   log(`Configuration:`, "cyan");
   log(`  Posts to generate: ${postCount}`, "gray");

@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { api } from "@/lib/api/client"
@@ -65,6 +66,16 @@ const PORTAL_URLS: Record<string, string> = {
   udyam: "https://udyamregistration.gov.in/udyam_verify.aspx",
 }
 
+const STANDARD_REJECTION_REASONS = [
+  "Document is blurry or illegible",
+  "Name on document does not match company name",
+  "Document number format is invalid",
+  "Document is expired",
+  "Invalid document type submitted",
+  "Document appears to be tampered with or fraudulent",
+  "Other",
+]
+
 export default function VerificationsPage() {
   const { toast } = useToast()
   const [entries, setEntries] = useState<VerificationEntry[]>([])
@@ -77,7 +88,8 @@ export default function VerificationsPage() {
   // Rejection reason modal state
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false)
   const [rejectingEntry, setRejectingEntry] = useState<VerificationEntry | null>(null)
-  const [rejectionReason, setRejectionReason] = useState("")
+  const [selectedStandardReason, setSelectedStandardReason] = useState("")
+  const [customReason, setCustomReason] = useState("")
   const [rejectionReasonError, setRejectionReasonError] = useState("")
 
   // Fetch all job providers and filter those with GSTIN submitted
@@ -174,7 +186,8 @@ export default function VerificationsPage() {
   // Open rejection modal instead of rejecting directly
   const openRejectModal = (entry: VerificationEntry) => {
     setRejectingEntry(entry)
-    setRejectionReason("")
+    setSelectedStandardReason("")
+    setCustomReason("")
     setRejectionReasonError("")
     setIsRejectModalOpen(true)
   }
@@ -182,14 +195,26 @@ export default function VerificationsPage() {
   // Submit rejection with reason
   const handleRejectWithReason = async () => {
     if (!rejectingEntry) return
-    if (!rejectionReason.trim()) {
-      setRejectionReasonError("Please provide a reason for rejection.")
+
+    // Determine the final reason string
+    const finalReason = selectedStandardReason === "Other"
+      ? customReason.trim()
+      : selectedStandardReason
+
+    if (!finalReason) {
+      setRejectionReasonError(
+        selectedStandardReason === "Other"
+          ? "Please provide a specific reason for rejection."
+          : "Please select a reason for rejection."
+      )
       return
     }
+
     setIsRejectModalOpen(false)
-    await handleVerification(rejectingEntry, "rejected", rejectionReason.trim())
+    await handleVerification(rejectingEntry, "rejected", finalReason)
     setRejectingEntry(null)
-    setRejectionReason("")
+    setSelectedStandardReason("")
+    setCustomReason("")
   }
 
   const handleVerification = async (entry: VerificationEntry, status: "verified" | "rejected", reason?: string) => {
@@ -563,23 +588,59 @@ export default function VerificationsPage() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid gap-2 py-2">
-              <Label htmlFor="rejection-reason">
-                Reason for rejection <span className="text-destructive">*</span>
-              </Label>
-              <Textarea
-                id="rejection-reason"
-                className={`min-h-[100px] resize-none ${
-                  rejectionReasonError ? "border-destructive ring-destructive/20" : ""
-                }`}
-                placeholder="e.g., The GSTIN number format does not match our records. Please verify and resubmit."
-                value={rejectionReason}
-                onChange={(e) => {
-                  setRejectionReason(e.target.value)
-                  if (rejectionReasonError) setRejectionReasonError("")
-                }}
-                autoFocus
-              />
+            <div className="grid gap-3 py-2">
+              <div className="grid gap-2">
+                <Label htmlFor="standard-reason">
+                  Reason for rejection <span className="text-destructive">*</span>
+                </Label>
+                <Select
+                  value={selectedStandardReason}
+                  onValueChange={(val) => {
+                    setSelectedStandardReason(val)
+                    if (rejectionReasonError) setRejectionReasonError("")
+                  }}
+                >
+                  <SelectTrigger
+                    id="standard-reason"
+                    className={`w-full ${
+                      rejectionReasonError && !selectedStandardReason
+                        ? "border-destructive ring-destructive/20"
+                        : ""
+                    }`}
+                  >
+                    <SelectValue placeholder="Select a reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STANDARD_REJECTION_REASONS.map((reason) => (
+                      <SelectItem key={reason} value={reason}>
+                        {reason}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedStandardReason === "Other" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="custom-reason">Please specify</Label>
+                  <Textarea
+                    id="custom-reason"
+                    className={`min-h-[80px] resize-none ${
+                      rejectionReasonError && selectedStandardReason === "Other"
+                        ? "border-destructive ring-destructive/20"
+                        : ""
+                    }`}
+                    placeholder="Enter specific details for rejection..."
+                    value={customReason}
+                    onChange={(e) => {
+                      setCustomReason(e.target.value)
+                      if (rejectionReasonError) setRejectionReasonError("")
+                    }}
+                    autoFocus
+                  />
+                </div>
+              )}
+
               {rejectionReasonError && (
                 <p className="text-sm text-destructive flex items-center gap-1">
                   <AlertCircle className="h-3.5 w-3.5" />
