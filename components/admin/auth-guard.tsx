@@ -5,8 +5,9 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { useAppSelector } from "@/lib/store/hooks"
+import { roleRouteAccess, defaultRouteForRole, type AdminRole } from "@/lib/rbacConfig"
 
 interface AuthGuardProps {
   children: React.ReactNode
@@ -14,6 +15,7 @@ interface AuthGuardProps {
 
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter()
+  const pathname = usePathname()
   const { isAuthenticated, user } = useAppSelector((state) => state.auth)
   const [isChecking, setIsChecking] = useState(true)
 
@@ -21,10 +23,23 @@ export function AuthGuard({ children }: AuthGuardProps) {
     // Check if user is authenticated
     if (!isAuthenticated || !user) {
       router.push("/admin/login")
-    } else {
-      setIsChecking(false)
+      return
     }
-  }, [isAuthenticated, user, router])
+
+    // Check if user has access to the current route
+    const userRole: AdminRole = (user.adminRole as AdminRole) || 'super_admin'
+    const allowedRoutes = roleRouteAccess[userRole] || roleRouteAccess.super_admin
+    const hasAccess = allowedRoutes.some(route => pathname.startsWith(route))
+
+    if (!hasAccess) {
+      // Redirect to the default route for this role
+      const fallback = defaultRouteForRole[userRole] || '/admin/dashboard'
+      router.push(fallback)
+      return
+    }
+
+    setIsChecking(false)
+  }, [isAuthenticated, user, router, pathname])
 
   if (isChecking) {
     return (

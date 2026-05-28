@@ -22,13 +22,13 @@
 
 // ─── Constants & Configuration ───────────────────────────────────────────────
 
-const DEFAULT_POST_COUNT = 15;
+const DEFAULT_POST_COUNT = 5;
 const DELAY_BETWEEN_POSTS_MS = 3_000; // 3 seconds between posts
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const GROQ_MODEL = "llama-3.3-70b-versatile"; // Extremely high quality, free, fast model
-const OPENROUTER_MODEL = "nvidia/nemotron-3-nano-30b-a3b:free"; // Best-in-class free model for long form
+const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"; // Fallback Llama model on OpenRouter
 const OPENAI_MODEL = "gpt-4o-mini"; // Fallback if no OpenRouter/Groq key
 const MAX_RETRIES = 2;
 

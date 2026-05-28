@@ -11,9 +11,12 @@ export interface JobSeeker {
   id: string
   name: string
   email: string
-  phone: string
   registrationDate: string
   isActive: boolean
+  gender?: string
+  city?: string
+  state?: string
+  country?: string
 }
 
 // API Response format from backend
@@ -27,6 +30,18 @@ export interface JobSeekerAPIResponse {
   }
   isActive: boolean
   createdAt: string
+  gender?: string
+  address?: {
+    addressLine1?: string
+    country?: string
+    state?: string
+    city?: string
+    postalCode?: string
+    location?: {
+      latitude: number
+      longitude: number
+    }
+  }
 }
 
 export interface Company {

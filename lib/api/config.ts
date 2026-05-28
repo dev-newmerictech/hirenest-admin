@@ -13,8 +13,8 @@ const DEV_API_URL = 'https://api-dev.hirenest.ai';
 const PROD_API_URL = 'https://api.hirenest.ai';
 
 // If NEXT_PUBLIC_API_URL is set (via .env.local or Docker ARG), use it.
-// Otherwise default to PRODUCTION (safe for deployed builds).
-export const API_URL = ENV_API_URL || PROD_API_URL;
+// Otherwise default to DEV backend (so deployed admin sees dev API changes).
+export const API_URL = ENV_API_URL || DEV_API_URL;
 
 // Derived environment label (for logging/debugging only)
 export const CURRENT_ENV: 'local' | 'dev' | 'prod' =

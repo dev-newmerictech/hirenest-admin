@@ -21,6 +21,14 @@ export interface CompanyDetailResponse {
   data: CompanyAPIResponse;
 }
 
+export interface CompanySyncResponse {
+  status: string;
+  data: {
+    updatedRecords: CompanyAPIResponse[];
+    deletedIds: string[];
+  };
+}
+
 // Transform API response to internal format
 export function transformCompany(apiCompany: CompanyAPIResponse): Company {
   // Update verificationStatus based on isDocumentVerified if available
@@ -107,5 +115,13 @@ export const companiesApi = {
    */
   deleteCompany: async (id: string): Promise<{ status: string; message: string }> => {
     return api.delete(`/admin/job-providers/${id}`);
+  },
+
+  /**
+   * Sync companies incrementally
+   * GET /admin/job-providers/sync?since={timestamp}
+   */
+  syncCompanies: async (since: string): Promise<CompanySyncResponse> => {
+    return api.get<CompanySyncResponse>(`/admin/job-providers/sync?since=${encodeURIComponent(since)}`);
   },
 };

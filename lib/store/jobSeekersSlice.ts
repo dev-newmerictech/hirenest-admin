@@ -1,56 +1,75 @@
 // Redux slice for job seekers state management
+// Data is fetched once from API, cached in IndexedDB, and paginated client-side
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { 
-  jobSeekersApi, 
-  JobSeekersListResponse, 
+import {
+  jobSeekersApi,
+  JobSeekersListResponse,
   JobSeekerDetailResponse,
   transformJobSeeker,
   extractJobSeekerFromDetailResponse,
 } from '../api/jobSeekers';
 import { JobSeeker } from '../types';
+import { getCachedData, setCachedData, CACHE_KEYS } from '../cache/adminCache';
 
 interface JobSeekersState {
-  jobSeekers: JobSeeker[];
+  allJobSeekers: JobSeeker[];     // ALL job seekers (from IndexedDB or API)
   selectedJobSeeker: JobSeeker | null;
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalItems: number;
-    itemsPerPage: number;
-  } | null;
   isLoading: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
   error: string | null;
   searchQuery: string;
+  lastFetchedAt: number | null;   // timestamp of last sync
 }
 
-// Initial state
 const initialState: JobSeekersState = {
-  jobSeekers: [],
+  allJobSeekers: [],
   selectedJobSeeker: null,
-  pagination: null,
   isLoading: false,
   isUpdating: false,
   isDeleting: false,
   error: null,
   searchQuery: '',
+  lastFetchedAt: null,
 };
 
-// Async thunk for fetching all job seekers
+// Load job seekers from IndexedDB cache
+export const loadJobSeekersFromCache = createAsyncThunk<
+  { jobSeekers: JobSeeker[]; timestamp: number } | null,
+  void,
+  { rejectValue: string }
+>(
+  'jobSeekers/loadFromCache',
+  async (_, { rejectWithValue }) => {
+    try {
+      const cached = await getCachedData<JobSeeker[]>(
+        CACHE_KEYS.jobSeekers,
+        CACHE_KEYS.jobSeekersTime
+      );
+      return cached ? { jobSeekers: cached.data, timestamp: cached.timestamp } : null;
+    } catch (error) {
+      return rejectWithValue('Failed to load from cache');
+    }
+  }
+);
+
+// Fetch ALL job seekers from API and store in IndexedDB
 export const fetchAllJobSeekers = createAsyncThunk<
-  JobSeekersListResponse,
-  { page?: number; limit?: number } | void,
+  { jobSeekers: JobSeeker[]; timestamp: number },
+  void,
   { rejectValue: string }
 >(
   'jobSeekers/fetchAll',
-  async (params, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const page = params && 'page' in params ? params.page : 1;
-      const limit = params && 'limit' in params ? params.limit : 10;
-      const response = await jobSeekersApi.getAllJobSeekers(page, limit);
-      return response;
+      const response = await jobSeekersApi.getAllJobSeekers(1, 100000);
+      const jobSeekers = response.data.jobSeekers.map(transformJobSeeker);
+
+      // Cache in IndexedDB
+      await setCachedData(CACHE_KEYS.jobSeekers, CACHE_KEYS.jobSeekersTime, jobSeekers);
+
+      return { jobSeekers, timestamp: Date.now() };
     } catch (error) {
       return rejectWithValue(
         error instanceof Error ? error.message : 'Failed to fetch job seekers'
@@ -59,26 +78,63 @@ export const fetchAllJobSeekers = createAsyncThunk<
   }
 );
 
-// Async thunk for searching job seekers
-export const searchJobSeekers = createAsyncThunk<
-  JobSeekersListResponse,
-  string,
+// Sync job seekers incrementally from API
+export const syncJobSeekers = createAsyncThunk<
+  { jobSeekers: JobSeeker[]; timestamp: number },
+  number,
   { rejectValue: string }
 >(
-  'jobSeekers/search',
-  async (query, { rejectWithValue }) => {
+  'jobSeekers/sync',
+  async (lastFetchedAt, { rejectWithValue, getState }) => {
     try {
-      const response = await jobSeekersApi.searchJobSeekers(query);
-      return response;
+      // 1. Convert timestamp to ISO string for backend
+      const since = new Date(lastFetchedAt).toISOString();
+      
+      // 2. Fetch delta from API
+      const response = await jobSeekersApi.syncJobSeekers(since);
+      
+      const updatedApiRecords = response.data.updatedRecords;
+      const deletedIds = response.data.deletedIds;
+
+      // 3. Get current state from IndexedDB
+      const cached = await getCachedData<JobSeeker[]>(
+        CACHE_KEYS.jobSeekers,
+        CACHE_KEYS.jobSeekersTime
+      );
+      
+      let currentRecords = cached?.data || [];
+      
+      // 4. Remove deleted records
+      currentRecords = currentRecords.filter(r => !deletedIds.includes(r.id));
+      
+      // 5. Upsert updated records
+      const updatedRecords = updatedApiRecords.map(transformJobSeeker);
+      for (const updated of updatedRecords) {
+        const index = currentRecords.findIndex(r => r.id === updated.id);
+        if (index !== -1) {
+          currentRecords[index] = updated; // Update
+        } else {
+          currentRecords.unshift(updated); // Insert at top
+        }
+      }
+
+      // 6. Sort just in case
+      currentRecords.sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime());
+
+      // 7. Save back to IndexedDB
+      const newTimestamp = Date.now();
+      await setCachedData(CACHE_KEYS.jobSeekers, CACHE_KEYS.jobSeekersTime, currentRecords, newTimestamp);
+
+      return { jobSeekers: currentRecords, timestamp: newTimestamp };
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Failed to search job seekers'
+        error instanceof Error ? error.message : 'Failed to sync job seekers'
       );
     }
   }
 );
 
-// Async thunk for fetching job seeker profile
+// Fetch job seeker profile
 export const fetchJobSeekerProfile = createAsyncThunk<
   JobSeekerDetailResponse,
   string,
@@ -97,18 +153,16 @@ export const fetchJobSeekerProfile = createAsyncThunk<
   }
 );
 
-// Async thunk for toggling job seeker status
+// Toggle job seeker status
 export const toggleJobSeekerStatus = createAsyncThunk<
   JobSeekerDetailResponse,
   { id: string; isActive: boolean },
   { rejectValue: string }
 >(
   'jobSeekers/toggleStatus',
-  async ({ id, isActive }, { rejectWithValue, dispatch }) => {
+  async ({ id, isActive }, { rejectWithValue }) => {
     try {
       const response = await jobSeekersApi.toggleJobSeekerStatus(id, isActive);
-      // Refetch all job seekers after successful toggle
-      dispatch(fetchAllJobSeekers());
       return response;
     } catch (error) {
       return rejectWithValue(
@@ -118,10 +172,10 @@ export const toggleJobSeekerStatus = createAsyncThunk<
   }
 );
 
-// Async thunk for updating job seeker
+// Update job seeker
 export const updateJobSeeker = createAsyncThunk<
   JobSeekerDetailResponse,
-  { id: string; data: { name?: string; email?: string; phone?: string } },
+  { id: string; data: { name?: string; email?: string } },
   { rejectValue: string }
 >(
   'jobSeekers/update',
@@ -137,18 +191,16 @@ export const updateJobSeeker = createAsyncThunk<
   }
 );
 
-// Async thunk for deleting job seeker
+// Delete job seeker
 export const deleteJobSeeker = createAsyncThunk<
   string,
   string,
   { rejectValue: string }
 >(
   'jobSeekers/delete',
-  async (id, { rejectWithValue, dispatch }) => {
+  async (id, { rejectWithValue }) => {
     try {
       await jobSeekersApi.deleteJobSeeker(id);
-      // Refetch all job seekers after successful delete
-      dispatch(fetchAllJobSeekers());
       return id;
     } catch (error) {
       return rejectWithValue(
@@ -158,75 +210,75 @@ export const deleteJobSeeker = createAsyncThunk<
   }
 );
 
-// Create the job seekers slice
 const jobSeekersSlice = createSlice({
   name: 'jobSeekers',
   initialState,
   reducers: {
-    // Set search query
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload;
     },
-    
-    // Clear error
     clearError: (state) => {
       state.error = null;
     },
-    
-    // Clear selected job seeker
     clearSelectedJobSeeker: (state) => {
       state.selectedJobSeeker = null;
     },
-    
-    // Reset job seekers state
-    resetJobSeekers: (state) => {
-      state.jobSeekers = [];
-      state.selectedJobSeeker = null;
-      state.pagination = null;
-      state.isLoading = false;
-      state.isUpdating = false;
-      state.isDeleting = false;
-      state.error = null;
-      state.searchQuery = '';
-    },
+    resetJobSeekers: () => initialState,
   },
   extraReducers: (builder) => {
     builder
-      // Fetch all job seekers
+      // Load from cache
+      .addCase(loadJobSeekersFromCache.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(loadJobSeekersFromCache.fulfilled, (state, action) => {
+        if (action.payload) {
+          state.allJobSeekers = action.payload.jobSeekers;
+          state.lastFetchedAt = action.payload.timestamp;
+          state.isLoading = false;
+        } else {
+          // No cache — stay in loading state, caller will dispatch fetchAll
+          state.isLoading = true;
+        }
+      })
+      .addCase(loadJobSeekersFromCache.rejected, (state) => {
+        state.isLoading = true; // stay loading, caller will fetch from API
+      })
+
+      // Fetch all from API
       .addCase(fetchAllJobSeekers.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchAllJobSeekers.fulfilled, (state, action: PayloadAction<JobSeekersListResponse>) => {
+      .addCase(fetchAllJobSeekers.fulfilled, (state, action) => {
         state.isLoading = false;
-        // Transform API response to internal format
-        state.jobSeekers = action.payload.data.jobSeekers.map(transformJobSeeker);
-        state.pagination = action.payload.data.pagination;
+        state.allJobSeekers = action.payload.jobSeekers;
+        state.lastFetchedAt = action.payload.timestamp;
         state.error = null;
       })
       .addCase(fetchAllJobSeekers.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload || 'Failed to fetch job seekers';
       })
-      
-      // Search job seekers
-      .addCase(searchJobSeekers.pending, (state) => {
-        state.isLoading = true;
+
+      // Sync incrementally from API
+      .addCase(syncJobSeekers.pending, (state) => {
+        state.isLoading = true; // or isSyncing if you prefer a separate flag
         state.error = null;
       })
-      .addCase(searchJobSeekers.fulfilled, (state, action: PayloadAction<JobSeekersListResponse>) => {
+      .addCase(syncJobSeekers.fulfilled, (state, action) => {
         state.isLoading = false;
-        // Transform API response to internal format
-        state.jobSeekers = action.payload.data.jobSeekers.map(transformJobSeeker);
-        state.pagination = action.payload.data.pagination;
+        state.allJobSeekers = action.payload.jobSeekers;
+        state.lastFetchedAt = action.payload.timestamp;
         state.error = null;
       })
-      .addCase(searchJobSeekers.rejected, (state, action) => {
+      .addCase(syncJobSeekers.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload || 'Failed to search job seekers';
+        state.error = action.payload || 'Failed to sync job seekers';
       })
-      
-      // Fetch job seeker profile
+
+      // Fetch profile
       .addCase(fetchJobSeekerProfile.pending, (state) => {
         state.isLoading = true;
         state.error = null;
@@ -241,7 +293,7 @@ const jobSeekersSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload || 'Failed to fetch job seeker profile';
       })
-      
+
       // Toggle status
       .addCase(toggleJobSeekerStatus.pending, (state) => {
         state.isUpdating = true;
@@ -250,15 +302,13 @@ const jobSeekersSlice = createSlice({
       .addCase(toggleJobSeekerStatus.fulfilled, (state, action: PayloadAction<JobSeekerDetailResponse>) => {
         state.isUpdating = false;
         const jobSeeker = extractJobSeekerFromDetailResponse(action.payload.data);
-        const transformedJobSeeker = transformJobSeeker(jobSeeker);
-        // Update in the list
-        const index = state.jobSeekers.findIndex(js => js.id === transformedJobSeeker.id);
+        const transformed = transformJobSeeker(jobSeeker);
+        const index = state.allJobSeekers.findIndex(js => js.id === transformed.id);
         if (index !== -1) {
-          state.jobSeekers[index] = transformedJobSeeker;
+          state.allJobSeekers[index] = transformed;
         }
-        // Update selected if it's the same one
-        if (state.selectedJobSeeker?.id === transformedJobSeeker.id) {
-          state.selectedJobSeeker = transformedJobSeeker;
+        if (state.selectedJobSeeker?.id === transformed.id) {
+          state.selectedJobSeeker = transformed;
         }
         state.error = null;
       })
@@ -266,8 +316,8 @@ const jobSeekersSlice = createSlice({
         state.isUpdating = false;
         state.error = action.payload || 'Failed to toggle status';
       })
-      
-      // Update job seeker
+
+      // Update
       .addCase(updateJobSeeker.pending, (state) => {
         state.isUpdating = true;
         state.error = null;
@@ -275,30 +325,27 @@ const jobSeekersSlice = createSlice({
       .addCase(updateJobSeeker.fulfilled, (state, action: PayloadAction<JobSeekerDetailResponse>) => {
         state.isUpdating = false;
         const jobSeeker = extractJobSeekerFromDetailResponse(action.payload.data);
-        const transformedJobSeeker = transformJobSeeker(jobSeeker);
-        // Update in the list
-        const index = state.jobSeekers.findIndex(js => js.id === transformedJobSeeker.id);
+        const transformed = transformJobSeeker(jobSeeker);
+        const index = state.allJobSeekers.findIndex(js => js.id === transformed.id);
         if (index !== -1) {
-          state.jobSeekers[index] = transformedJobSeeker;
+          state.allJobSeekers[index] = transformed;
         }
-        state.selectedJobSeeker = transformedJobSeeker;
+        state.selectedJobSeeker = transformed;
         state.error = null;
       })
       .addCase(updateJobSeeker.rejected, (state, action) => {
         state.isUpdating = false;
         state.error = action.payload || 'Failed to update job seeker';
       })
-      
-      // Delete job seeker
+
+      // Delete
       .addCase(deleteJobSeeker.pending, (state) => {
         state.isDeleting = true;
         state.error = null;
       })
       .addCase(deleteJobSeeker.fulfilled, (state, action: PayloadAction<string>) => {
         state.isDeleting = false;
-        // Remove from the list
-        state.jobSeekers = state.jobSeekers.filter(js => js.id !== action.payload);
-        // Clear selected if it was the deleted one
+        state.allJobSeekers = state.allJobSeekers.filter(js => js.id !== action.payload);
         if (state.selectedJobSeeker?.id === action.payload) {
           state.selectedJobSeeker = null;
         }
@@ -311,12 +358,11 @@ const jobSeekersSlice = createSlice({
   },
 });
 
-export const { 
-  setSearchQuery, 
-  clearError, 
-  clearSelectedJobSeeker, 
-  resetJobSeekers 
+export const {
+  setSearchQuery,
+  clearError,
+  clearSelectedJobSeeker,
+  resetJobSeekers,
 } = jobSeekersSlice.actions;
 
 export default jobSeekersSlice.reducer;
-

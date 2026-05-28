@@ -8,12 +8,14 @@ import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, Briefcase, Settings, LogOut, Building2, Package, Menu, Coins, CreditCard, Flag, ShieldCheck, MessageSquare } from "lucide-react"
+import { LayoutDashboard, Users, Briefcase, Settings, LogOut, Building2, Package, Menu, Coins, CreditCard, Flag, ShieldCheck, MessageSquare, Map as MapIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { clearAuthSession } from "@/lib/auth"
 import { ThemeToggle } from "@/components/theme-toggle"
 import Image from "next/image"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { useAppSelector } from "@/lib/store/hooks"
+import { roleRouteAccess, type AdminRole } from "@/lib/rbacConfig"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -30,6 +32,7 @@ const navigation = [
   { name: "Companies", href: "/admin/companies", icon: Building2 },
   { name: "Jobs", href: "/admin/jobs", icon: Briefcase },
   { name: "Reports", href: "/admin/reports", icon: Flag },
+  { name: "Global Map", href: "/admin/user-map", icon: MapIcon },
   { name: "Verifications", href: "/admin/verifications", icon: ShieldCheck },
   { name: "Feedback", href: "/admin/feedback", icon: MessageSquare },
   { name: "Packages", href: "/admin/packages", icon: Package },
@@ -69,6 +72,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { user } = useAppSelector((state) => state.auth)
+
+  // Filter navigation items based on user's admin role
+  const userRole: AdminRole = (user?.adminRole as AdminRole) || 'super_admin'
+  const allowedRoutes = roleRouteAccess[userRole] || roleRouteAccess.super_admin
+  const filteredNavigation = navigation.filter(item => allowedRoutes.includes(item.href))
 
   const handleLogout = () => {
     clearAuthSession()
@@ -87,7 +96,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 px-3 py-4">
-            {navigation.map((item) => {
+            {filteredNavigation.map((item) => {
               const isActive = pathname === item.href
               return (
                 <Link
@@ -154,7 +163,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
               <AdminLogo width={100} height={100} />
             </div>
             <nav className="flex-1 space-y-1 px-3 py-4">
-              {navigation.map((item) => {
+              {filteredNavigation.map((item) => {
                 const isActive = pathname === item.href
                 return (
                   <Link

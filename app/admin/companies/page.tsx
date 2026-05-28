@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
@@ -28,24 +28,31 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { useToast } from "@/hooks/use-toast"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import {
+  loadCompaniesFromCache,
   fetchAllCompanies,
   toggleCompanyStatus,
   updateCompany,
   deleteCompany,
   setSearchQuery,
   clearError,
+  syncCompanies,
 } from "@/lib/store/companiesSlice"
+import { useCanWrite } from "@/lib/rbacConfig"
+import { exportToExcel } from "@/lib/utils/excelExport"
 import type { Company } from "@/lib/types"
-import { format } from "date-fns"
-import { MoreVertical, Eye, Ban, CheckCircle, Trash2, ShieldCheck, ShieldX, User } from "lucide-react"
+import { format, formatDistanceToNow } from "date-fns"
+import { MoreVertical, Eye, Ban, CheckCircle, Trash2, ShieldCheck, ShieldX, User, RefreshCw, Download } from "lucide-react"
+
+const ITEMS_PER_PAGE = 10
 
 export default function CompaniesPage() {
   const { toast } = useToast()
   const dispatch = useAppDispatch()
   const router = useRouter()
+  const canWrite = useCanWrite()
   
   // Redux state
-  const { companies, pagination, isLoading, isUpdating, isDeleting, error, searchQuery } = useAppSelector(
+  const { allCompanies, isLoading, isUpdating, isDeleting, error, searchQuery, lastFetchedAt } = useAppSelector(
     (state) => state.companies
   )
   
@@ -54,11 +61,20 @@ export default function CompaniesPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [formData, setFormData] = useState<Partial<Company>>({})
   const [currentPage, setCurrentPage] = useState(1)
+  const [isSyncing, setIsSyncing] = useState(false)
 
-  // Fetch companies on mount and when page changes
+  // Load from IndexedDB cache on mount, fetch from API if no cache
   useEffect(() => {
-    dispatch(fetchAllCompanies({ page: currentPage, limit: 10 }))
-  }, [dispatch, currentPage])
+    const initData = async () => {
+      if (allCompanies.length > 0 && lastFetchedAt) return
+
+      const cacheResult = await dispatch(loadCompaniesFromCache()).unwrap()
+      if (!cacheResult) {
+        dispatch(fetchAllCompanies())
+      }
+    }
+    initData()
+  }, [dispatch, allCompanies.length, lastFetchedAt])
 
   // Show error toast
   useEffect(() => {
@@ -72,18 +88,70 @@ export default function CompaniesPage() {
     }
   }, [error, toast, dispatch])
 
-  // Filter companies based on search query
+  // Filter companies based on search query (client-side)
   const filteredCompanies = useMemo(() => {
-    if (!searchQuery.trim()) return companies
+    if (!searchQuery.trim()) return allCompanies
     
     const query = searchQuery.toLowerCase()
-    return companies.filter(
+    return allCompanies.filter(
       (company) =>
         company.name.toLowerCase().includes(query) ||
         company.email.toLowerCase().includes(query) ||
         company.industry.toLowerCase().includes(query)
     )
-  }, [searchQuery, companies])
+  }, [searchQuery, allCompanies])
+
+  // Client-side pagination
+  const totalItems = filteredCompanies.length
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+  const paginatedCompanies = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredCompanies.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredCompanies, currentPage])
+
+  // Refresh — incrementally sync or force re-fetch
+  const handleRefresh = useCallback(async () => {
+    setIsSyncing(true)
+    try {
+      if (lastFetchedAt) {
+        await dispatch(syncCompanies(lastFetchedAt)).unwrap()
+        toast({
+          title: "Delta Sync Complete",
+          description: `Successfully fetched incremental updates.`,
+        })
+      } else {
+        await dispatch(fetchAllCompanies()).unwrap()
+        toast({
+          title: "Full Sync Complete",
+          description: `Successfully loaded all companies.`,
+        })
+      }
+    } catch {
+      // Error handled by slice
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [dispatch, toast, lastFetchedAt])
+
+  // Export to Excel — from in-memory data
+  const handleExport = useCallback(() => {
+    if (allCompanies.length === 0) {
+      toast({ title: "No Data", description: "No companies to export.", variant: "destructive" })
+      return
+    }
+
+    const rows = allCompanies.map((company) => ({
+      'Company Name': company.name,
+      Email: company.email,
+      Industry: company.industry,
+      'Registration Date': format(new Date(company.registrationDate), "yyyy-MM-dd"),
+      Status: company.isActive ? 'Active' : 'Inactive',
+      Verification: getVerificationStatus(company).charAt(0).toUpperCase() + getVerificationStatus(company).slice(1),
+    }))
+
+    exportToExcel(rows, `companies-${format(new Date(), 'yyyy-MM-dd')}`, 'Companies')
+    toast({ title: "Export Complete", description: `Exported ${rows.length} companies to Excel.` })
+  }, [allCompanies, toast])
 
   const handleView = (company: Company) => {
     setSelectedCompany(company)
@@ -163,7 +231,6 @@ export default function CompaniesPage() {
 
   const handleSearchChange = (value: string) => {
     dispatch(setSearchQuery(value))
-    // Reset to page 1 when searching
     if (currentPage !== 1) {
       setCurrentPage(1)
     }
@@ -193,25 +260,19 @@ export default function CompaniesPage() {
 
   // Generate page numbers for pagination
   const getPageNumbers = () => {
-    if (!pagination) return []
-    
-    const { currentPage, totalPages } = pagination
     const pages: (number | 'ellipsis')[] = []
     
     if (totalPages <= 7) {
-      // Show all pages if 7 or fewer
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i)
       }
     } else {
-      // Always show first page
       pages.push(1)
       
       if (currentPage > 3) {
         pages.push('ellipsis')
       }
       
-      // Show pages around current page
       const start = Math.max(2, currentPage - 1)
       const end = Math.min(totalPages - 1, currentPage + 1)
       
@@ -223,7 +284,6 @@ export default function CompaniesPage() {
         pages.push('ellipsis')
       }
       
-      // Always show last page
       pages.push(totalPages)
     }
     
@@ -302,33 +362,37 @@ export default function CompaniesPage() {
               <User className="mr-2 h-4 w-4" />
               View Profile
             </DropdownMenuItem>
-            {getVerificationStatus(item) !== "approved" && (
+            {canWrite && (
               <>
-                <DropdownMenuItem onClick={() => handleVerification(item, "approved")}>
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  Approve Verification
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => handleVerification(item, "rejected")}>
-                  <ShieldX className="mr-2 h-4 w-4" />
-                  Reject Verification
+                {getVerificationStatus(item) !== "approved" && (
+                  <>
+                    <DropdownMenuItem onClick={() => handleVerification(item, "approved")}>
+                      <ShieldCheck className="mr-2 h-4 w-4" />
+                      Approve Verification
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleVerification(item, "rejected")}>
+                      <ShieldX className="mr-2 h-4 w-4" />
+                      Reject Verification
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {item.isActive ? (
+                  <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
+                    <Ban className="mr-2 h-4 w-4" />
+                    Deactivate
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Activate
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => handleDelete(item)} className="text-destructive">
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete
                 </DropdownMenuItem>
               </>
             )}
-            {item.isActive ? (
-              <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
-                <Ban className="mr-2 h-4 w-4" />
-                Deactivate
-              </DropdownMenuItem>
-            ) : (
-              <DropdownMenuItem onClick={() => handleToggleStatus(item)}>
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Activate
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={() => handleDelete(item)} className="text-destructive">
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ),
@@ -342,22 +406,51 @@ export default function CompaniesPage() {
 
           <div className="mt-4 sm:mt-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <PageHeader title="Companies" description="Manage company accounts and verifications" />
-            <SearchBar placeholder="Search by company name..." value={searchQuery} onChange={handleSearchChange} />
+            <div className="flex items-center gap-2">
+              <SearchBar placeholder="Search by company name..." value={searchQuery} onChange={handleSearchChange} />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isLoading || isSyncing}
+                title="Refresh data from server"
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleExport}
+                disabled={allCompanies.length === 0}
+                title="Export to Excel"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+
+          {/* Sync indicator */}
+          {lastFetchedAt && (
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Last synced {formatDistanceToNow(new Date(lastFetchedAt), { addSuffix: true })}
+              {' · '}{allCompanies.length} records loaded
+            </div>
+          )}
 
           {isLoading ? (
             <div className="h-64 rounded-lg bg-muted animate-pulse" />
           ) : (
             <>
-              <DataTable columns={columns} data={filteredCompanies} emptyMessage="No companies found" />
+              <DataTable columns={columns} data={paginatedCompanies} emptyMessage="No companies found" />
               
-              {/* Pagination */}
-              {pagination && pagination.totalPages > 1 && !searchQuery && (
+              {/* Client-side Pagination */}
+              {totalPages > 1 && !searchQuery && (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4">
                   <div className="text-sm text-muted-foreground">
-                    Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
-                    {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
-                    {pagination.totalItems} companies
+                    Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to{' '}
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} of{' '}
+                    {totalItems} companies
                   </div>
                   
                   <Pagination>
@@ -367,12 +460,12 @@ export default function CompaniesPage() {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault()
-                            if (pagination.currentPage > 1) {
-                              handlePageChange(pagination.currentPage - 1)
+                            if (currentPage > 1) {
+                              handlePageChange(currentPage - 1)
                             }
                           }}
                           className={
-                            pagination.currentPage === 1
+                            currentPage === 1
                               ? 'pointer-events-none opacity-50'
                               : 'cursor-pointer'
                           }
@@ -390,7 +483,7 @@ export default function CompaniesPage() {
                                 e.preventDefault()
                                 handlePageChange(page)
                               }}
-                              isActive={page === pagination.currentPage}
+                              isActive={page === currentPage}
                               className="cursor-pointer"
                             >
                               {page}
@@ -404,12 +497,12 @@ export default function CompaniesPage() {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault()
-                            if (pagination.currentPage < pagination.totalPages) {
-                              handlePageChange(pagination.currentPage + 1)
+                            if (currentPage < totalPages) {
+                              handlePageChange(currentPage + 1)
                             }
                           }}
                           className={
-                            pagination.currentPage === pagination.totalPages
+                            currentPage === totalPages
                               ? 'pointer-events-none opacity-50'
                               : 'cursor-pointer'
                           }
@@ -423,42 +516,20 @@ export default function CompaniesPage() {
           )}
         </div>
 
-          {/* Detail Drawer - READ-ONLY MODE: was title="Edit Company" */}
+        {/* Detail Drawer */}
         {selectedCompany && (
           <DetailDrawer open={isDetailOpen} onOpenChange={setIsDetailOpen} title="Company Details">
             <div className="grid gap-6">
               <div className="space-y-2">
                 <Label htmlFor="name">Company Name</Label>
-                {/* READ-ONLY MODE: Editable input commented out
-                <Input
-                  id="name"
-                  value={formData.name || ""}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-                */}
                 <p className="text-sm font-medium">{selectedCompany.name}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                {/* READ-ONLY MODE: Editable input commented out
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email || ""}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
-                */}
                 <p className="text-sm font-medium">{selectedCompany.email}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="industry">Industry</Label>
-                {/* READ-ONLY MODE: Editable input commented out
-                <Input
-                  id="industry"
-                  value={formData.industry || ""}
-                  onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                />
-                */}
                 <p className="text-sm font-medium">{selectedCompany.industry}</p>
               </div>
               <div className="space-y-2">
@@ -500,30 +571,7 @@ export default function CompaniesPage() {
                   </Badge>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Verification Status</Label>
-                <div className="mt-1">
-                  <Badge
-                    variant={
-                      selectedVerificationStatus === "approved"
-                        ? "default"
-                        : selectedVerificationStatus === "rejected"
-                          ? "destructive"
-                          : "secondary"
-                    }
-                    className={
-                      selectedVerificationStatus === "approved"
-                        ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-                        : selectedVerificationStatus === "rejected"
-                          ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                          : ""
-                    }
-                  >
-                    {selectedVerificationStatus.charAt(0).toUpperCase() + selectedVerificationStatus.slice(1)}
-                  </Badge>
-                </div>
-              </div>
-              {selectedVerificationStatus !== "approved" && (
+              {canWrite && selectedVerificationStatus !== "approved" && (
                 <div className="flex gap-2 pt-2">
                   <Button
                     onClick={() => {
@@ -548,17 +596,6 @@ export default function CompaniesPage() {
                   </Button>
                 </div>
               )}
-
-              {/* READ-ONLY MODE: Action buttons commented out
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isUpdating}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdate} disabled={isUpdating}>
-                  {isUpdating ? "Saving..." : "Save Changes"}
-                </Button>
-              </div>
-              */}
             </div>
           </DetailDrawer>
         )}

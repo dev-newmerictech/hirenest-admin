@@ -14,6 +14,7 @@ export interface LoginResponse {
     id: string;
     email: string;
     firstName: string;
+    adminRole: 'super_admin' | 'marketing';
   };
 }
 

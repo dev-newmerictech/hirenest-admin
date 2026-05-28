@@ -26,7 +26,7 @@ on:
       post_count:
         description: "Number of blog posts to generate (1-30)"
         required: false
-        default: "15"
+        default: "5"
         type: string
       dry_run:
         description: "Dry run (generate but don't publish)"
@@ -58,10 +58,11 @@ jobs:
       # ── 4. Run the auto-blogger script ──
       - name: Run Auto-Blogger
         env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           NEXT_PUBLIC_CONVEX_URL: ${{ secrets.NEXT_PUBLIC_CONVEX_URL }}
         run: |
-          POST_COUNT="${{ github.event.inputs.post_count || '15' }}"
+          POST_COUNT="${{ github.event.inputs.post_count || '5' }}"
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
 
           ARGS="--count $POST_COUNT"

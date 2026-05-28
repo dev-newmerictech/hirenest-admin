@@ -1,4 +1,5 @@
 // Redux slice for job posts state management
+// Data is fetched once from API, cached in IndexedDB, and paginated client-side
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { 
@@ -8,55 +9,95 @@ import {
   transformJobPost 
 } from '../api/jobPosts';
 import { Job } from '../types';
+import { getCachedData, setCachedData, CACHE_KEYS } from '../cache/adminCache';
 
 interface JobPostsState {
-  jobPosts: Job[];
-  activeJobPosts: Job[];
+  allJobPosts: Job[];             // ALL job posts (from IndexedDB or API)
   selectedJobPost: Job | null;
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalItems: number;
-    itemsPerPage: number;
-  } | null;
   isLoading: boolean;
-  isLoadingActive: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
   error: string | null;
   searchQuery: string;
   filterStatus: 'all' | 'active' | 'closed';
+  lastFetchedAt: number | null;   // timestamp of last sync
 }
 
 // Initial state
 const initialState: JobPostsState = {
-  jobPosts: [],
-  activeJobPosts: [],
+  allJobPosts: [],
   selectedJobPost: null,
-  pagination: null,
   isLoading: false,
-  isLoadingActive: false,
   isUpdating: false,
   isDeleting: false,
   error: null,
   searchQuery: '',
   filterStatus: 'all',
+  lastFetchedAt: null,
 };
 
-// Async thunk for fetching all job posts
+// Load job posts from IndexedDB cache
+export const loadJobPostsFromCache = createAsyncThunk<
+  { jobPosts: Job[]; timestamp: number } | null,
+  void,
+  { rejectValue: string }
+>(
+  'jobPosts/loadFromCache',
+  async (_, { rejectWithValue }) => {
+    try {
+      const cached = await getCachedData<Job[]>(
+        CACHE_KEYS.jobPosts,
+        CACHE_KEYS.jobPostsTime
+      );
+      return cached ? { jobPosts: cached.data, timestamp: cached.timestamp } : null;
+    } catch (error) {
+      return rejectWithValue('Failed to load from cache');
+    }
+  }
+);
+
+// Fetch ALL job posts from API and store in IndexedDB
 export const fetchAllJobPosts = createAsyncThunk<
-  JobPostsListResponse,
-  { page?: number; limit?: number; company?: string } | void,
+  { jobPosts: Job[]; timestamp: number },
+  void,
   { rejectValue: string }
 >(
   'jobPosts/fetchAll',
-  async (params, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const page = params && 'page' in params ? params.page : 1;
-      const limit = params && 'limit' in params ? params.limit : 10;
-      const company = params && 'company' in params ? params.company : undefined;
-      const response = await jobPostsApi.getAllJobPosts(page, limit, company);
-      return response;
+      const response = await jobPostsApi.getAllJobPosts(1, 100000);
+      
+      // Filter out invalid job posts and transform
+      const validJobPosts = response.data.jobPosts.filter((jobPost) => {
+        return jobPost && jobPost._id && Object.keys(jobPost).length > 0;
+      });
+
+      const jobPosts = validJobPosts.map((jobPost) => {
+        try {
+          return transformJobPost(jobPost);
+        } catch (error) {
+          console.error('Error transforming job post:', error, jobPost);
+          // Return a fallback job object
+          return {
+            id: jobPost._id || 'unknown',
+            title: jobPost.title || 'Unknown Job',
+            companyId: typeof jobPost.company === 'string' ? jobPost.company : jobPost.company?._id || 'unknown',
+            companyName: typeof jobPost.company === 'object' && jobPost.company?.name ? jobPost.company.name : 'Unknown Company',
+            description: jobPost.description || '',
+            postedDate: jobPost.createdAt || new Date().toISOString(),
+            status: jobPost.jobStatus === "open" ? "active" as const : "closed" as const,
+            location: jobPost.address ? `${jobPost.address.city || 'N/A'}, ${jobPost.address.state || 'N/A'}` : 'N/A',
+            type: (jobPost.preferences?.employmentType?.[0] as "full-time" | "part-time" | "contract" | "internship") || "full-time" as const,
+            salary: undefined,
+            requirements: jobPost.preferences?.skills || [],
+          };
+        }
+      });
+
+      // Cache in IndexedDB
+      await setCachedData(CACHE_KEYS.jobPosts, CACHE_KEYS.jobPostsTime, jobPosts);
+
+      return { jobPosts, timestamp: Date.now() };
     } catch (error) {
       return rejectWithValue(
         error instanceof Error ? error.message : 'Failed to fetch job posts'
@@ -65,26 +106,75 @@ export const fetchAllJobPosts = createAsyncThunk<
   }
 );
 
-// Async thunk for fetching active job posts
-export const fetchActiveJobPosts = createAsyncThunk<
-  JobPostsListResponse,
-  void,
+// Sync job posts incrementally from API
+export const syncJobPosts = createAsyncThunk<
+  { jobPosts: Job[]; timestamp: number },
+  number,
   { rejectValue: string }
 >(
-  'jobPosts/fetchActive',
-  async (_, { rejectWithValue }) => {
+  'jobPosts/sync',
+  async (lastFetchedAt, { rejectWithValue }) => {
     try {
-      const response = await jobPostsApi.getActiveJobPosts();
-      return response;
+      const since = new Date(lastFetchedAt).toISOString();
+      const response = await jobPostsApi.syncJobPosts(since);
+      
+      const updatedApiRecords = response.data.updatedRecords;
+      const deletedIds = response.data.deletedIds;
+
+      const cached = await getCachedData<Job[]>(
+        CACHE_KEYS.jobPosts,
+        CACHE_KEYS.jobPostsTime
+      );
+      
+      let currentRecords = cached?.data || [];
+      
+      currentRecords = currentRecords.filter(r => !deletedIds.includes(r.id));
+      
+      const validUpdated = updatedApiRecords.filter(jp => jp && Object.keys(jp).length > 0);
+      const updatedRecords = validUpdated.map(jp => {
+        try {
+          return transformJobPost(jp);
+        } catch (e) {
+          return {
+            id: jp._id || 'unknown',
+            title: jp.title || 'Unknown Job',
+            companyId: typeof jp.company === 'string' ? jp.company : jp.company?._id || 'unknown',
+            companyName: typeof jp.company === 'object' && jp.company?.name ? jp.company.name : 'Unknown Company',
+            description: jp.description || '',
+            postedDate: jp.createdAt || new Date().toISOString(),
+            status: jp.jobStatus === "open" ? "active" as const : "closed" as const,
+            location: jp.address ? `${jp.address.city || 'N/A'}, ${jp.address.state || 'N/A'}` : 'N/A',
+            type: (jp.preferences?.employmentType?.[0] as "full-time" | "part-time" | "contract" | "internship") || "full-time" as const,
+            salary: undefined,
+            requirements: jp.preferences?.skills || [],
+          };
+        }
+      });
+
+      for (const updated of updatedRecords) {
+        const index = currentRecords.findIndex(r => r.id === updated.id);
+        if (index !== -1) {
+          currentRecords[index] = updated;
+        } else {
+          currentRecords.unshift(updated);
+        }
+      }
+
+      currentRecords.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
+
+      const newTimestamp = Date.now();
+      await setCachedData(CACHE_KEYS.jobPosts, CACHE_KEYS.jobPostsTime, currentRecords, newTimestamp);
+
+      return { jobPosts: currentRecords, timestamp: newTimestamp };
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Failed to fetch active job posts'
+        error instanceof Error ? error.message : 'Failed to sync job posts'
       );
     }
   }
 );
 
-// Async thunk for fetching single job post
+// Fetch single job post
 export const fetchJobPost = createAsyncThunk<
   JobPostDetailResponse,
   string,
@@ -103,37 +193,18 @@ export const fetchJobPost = createAsyncThunk<
   }
 );
 
-// Async thunk for updating job post
+// Update job post
 export const updateJobPost = createAsyncThunk<
   JobPostDetailResponse,
-  { id: string; data: { title?: string; description?: string; jobStatus?: "open" | "closed" }; currentPage?: number },
+  { id: string; data: { title?: string; description?: string; jobStatus?: "open" | "closed" } },
   { rejectValue: string }
 >(
   'jobPosts/update',
-  async ({ id, data, currentPage }, { rejectWithValue, dispatch }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
-      console.log('Starting updateJobPost with:', { id, data, currentPage });
       const response = await jobPostsApi.updateJobPost(id, data);
-      console.log('Update API response:', response);
-      
-      // Auto-refetch with current page to maintain position
-      try {
-        if (currentPage !== undefined) {
-          await dispatch(fetchAllJobPosts({ page: currentPage, limit: 10 })).unwrap();
-        } else {
-          // If no page provided, just refetch first page
-          await dispatch(fetchAllJobPosts({ page: 1, limit: 10 })).unwrap();
-        }
-        console.log('Refetch completed successfully');
-      } catch (refetchError) {
-        console.error('Error refetching job posts after update:', refetchError);
-        // Don't fail the entire update if refetch fails
-      }
-      
-      console.log('updateJobPost completed successfully');
       return response;
     } catch (error) {
-      console.error('Error updating job post:', error);
       return rejectWithValue(
         error instanceof Error ? error.message : 'Failed to update job post'
       );
@@ -141,33 +212,18 @@ export const updateJobPost = createAsyncThunk<
   }
 );
 
-// Async thunk for deleting job post
+// Delete job post
 export const deleteJobPost = createAsyncThunk<
-  { id: string },
-  { id: string; currentPage?: number },
+  string,
+  string,
   { rejectValue: string }
 >(
   'jobPosts/delete',
-  async ({ id, currentPage }, { rejectWithValue, dispatch }) => {
+  async (id, { rejectWithValue }) => {
     try {
       await jobPostsApi.deleteJobPost(id);
-      
-      // Auto-refetch with current page to maintain position
-      try {
-        if (currentPage !== undefined) {
-          await dispatch(fetchAllJobPosts({ page: currentPage, limit: 10 })).unwrap();
-        } else {
-          // If no page provided, just refetch first page
-          await dispatch(fetchAllJobPosts({ page: 1, limit: 10 })).unwrap();
-        }
-      } catch (refetchError) {
-        console.error('Error refetching job posts after delete:', refetchError);
-        // Don't fail the entire delete if refetch fails
-      }
-      
-      return { id };
+      return id;
     } catch (error) {
-      console.error('Error deleting job post:', error);
       return rejectWithValue(
         error instanceof Error ? error.message : 'Failed to delete job post'
       );
@@ -192,111 +248,61 @@ const jobPostsSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    resetJobPosts: () => initialState,
   },
   extraReducers: (builder) => {
-    // Fetch all job posts
     builder
+      // Load from cache
+      .addCase(loadJobPostsFromCache.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(loadJobPostsFromCache.fulfilled, (state, action) => {
+        if (action.payload) {
+          state.allJobPosts = action.payload.jobPosts;
+          state.lastFetchedAt = action.payload.timestamp;
+          state.isLoading = false;
+        } else {
+          state.isLoading = true;
+        }
+      })
+      .addCase(loadJobPostsFromCache.rejected, (state) => {
+        state.isLoading = true;
+      })
+
+      // Fetch all from API
       .addCase(fetchAllJobPosts.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchAllJobPosts.fulfilled, (state, action: PayloadAction<JobPostsListResponse>) => {
+      .addCase(fetchAllJobPosts.fulfilled, (state, action) => {
         state.isLoading = false;
-        try {
-          console.log('Processing all job posts:', action.payload.data.jobPosts);
-          // Filter out invalid job posts first
-          const validJobPosts = action.payload.data.jobPosts.filter((jobPost) => {
-            return jobPost && jobPost._id && Object.keys(jobPost).length > 0;
-          });
-          
-          console.log(`Filtered ${action.payload.data.jobPosts.length - validJobPosts.length} invalid job posts`);
-          
-          state.jobPosts = validJobPosts.map((jobPost, index) => {
-            console.log(`Processing job post ${index}:`, jobPost);
-            try {
-              return transformJobPost(jobPost);
-            } catch (error) {
-              console.error('Error transforming job post in list:', error, jobPost);
-              // Return a fallback job object to prevent the entire list from failing
-              return {
-                id: jobPost._id || 'unknown',
-                title: jobPost.title || 'Unknown Job',
-                companyId: typeof jobPost.company === 'string' ? jobPost.company : jobPost.company?._id || 'unknown',
-                companyName: typeof jobPost.company === 'object' && jobPost.company?.name ? jobPost.company.name : 'Unknown Company',
-                description: jobPost.description || '',
-                postedDate: jobPost.createdAt || new Date().toISOString(),
-                status: jobPost.jobStatus === "open" ? "active" : "closed",
-                location: jobPost.address ? `${jobPost.address.city || 'N/A'}, ${jobPost.address.state || 'N/A'}` : 'N/A',
-                type: (jobPost.preferences?.employmentType?.[0] as "full-time" | "part-time" | "contract" | "internship") || "full-time",
-                salary: undefined,
-                requirements: jobPost.preferences?.skills || [],
-              };
-            }
-          });
-        } catch (error) {
-          console.error('Error processing job posts list:', error);
-          state.jobPosts = [];
-        }
-        state.pagination = action.payload.data.pagination;
+        state.allJobPosts = action.payload.jobPosts;
+        state.lastFetchedAt = action.payload.timestamp;
         state.error = null;
       })
       .addCase(fetchAllJobPosts.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload || 'Failed to fetch job posts';
-      });
+      })
 
-    // Fetch active job posts
-    builder
-      .addCase(fetchActiveJobPosts.pending, (state) => {
-        state.isLoadingActive = true;
+      // Sync incrementally from API
+      .addCase(syncJobPosts.pending, (state) => {
+        state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchActiveJobPosts.fulfilled, (state, action: PayloadAction<JobPostsListResponse>) => {
-        state.isLoadingActive = false;
-        try {
-          console.log('Processing active job posts:', action.payload.data.jobPosts);
-          // Filter out invalid job posts first
-          const validJobPosts = action.payload.data.jobPosts.filter((jobPost) => {
-            return jobPost && jobPost._id && Object.keys(jobPost).length > 0;
-          });
-          
-          console.log(`Filtered ${action.payload.data.jobPosts.length - validJobPosts.length} invalid active job posts`);
-          
-          state.activeJobPosts = validJobPosts.map((jobPost, index) => {
-            console.log(`Processing active job post ${index}:`, jobPost);
-            try {
-              return transformJobPost(jobPost);
-            } catch (error) {
-              console.error('Error transforming active job post:', error, jobPost);
-              // Return a fallback job object to prevent the entire list from failing
-              return {
-                id: jobPost._id || 'unknown',
-                title: jobPost.title || 'Unknown Job',
-                companyId: typeof jobPost.company === 'string' ? jobPost.company : jobPost.company?._id || 'unknown',
-                companyName: typeof jobPost.company === 'object' && jobPost.company?.name ? jobPost.company.name : 'Unknown Company',
-                description: jobPost.description || '',
-                postedDate: jobPost.createdAt || new Date().toISOString(),
-                status: jobPost.jobStatus === "open" ? "active" : "closed",
-                location: jobPost.address ? `${jobPost.address.city || 'N/A'}, ${jobPost.address.state || 'N/A'}` : 'N/A',
-                type: (jobPost.preferences?.employmentType?.[0] as "full-time" | "part-time" | "contract" | "internship") || "full-time",
-                salary: undefined,
-                requirements: jobPost.preferences?.skills || [],
-              };
-            }
-          });
-        } catch (error) {
-          console.error('Error processing active job posts list:', error);
-          state.activeJobPosts = [];
-        }
+      .addCase(syncJobPosts.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.allJobPosts = action.payload.jobPosts;
+        state.lastFetchedAt = action.payload.timestamp;
         state.error = null;
       })
-      .addCase(fetchActiveJobPosts.rejected, (state, action) => {
-        state.isLoadingActive = false;
-        state.error = action.payload || 'Failed to fetch active job posts';
-      });
+      .addCase(syncJobPosts.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload || 'Failed to sync job posts';
+      })
 
-    // Fetch single job post
-    builder
+      // Fetch single job post
       .addCase(fetchJobPost.pending, (state) => {
         state.selectedJobPost = null;
       })
@@ -305,45 +311,46 @@ const jobPostsSlice = createSlice({
       })
       .addCase(fetchJobPost.rejected, (state, action) => {
         state.error = action.payload || 'Failed to fetch job post';
-      });
+      })
 
-    // Update job post
-    builder
+      // Update job post
       .addCase(updateJobPost.pending, (state) => {
         state.isUpdating = true;
         state.error = null;
       })
       .addCase(updateJobPost.fulfilled, (state, action: PayloadAction<JobPostDetailResponse>) => {
-        console.log('updateJobPost.fulfilled called with:', action.payload);
         state.isUpdating = false;
         if (action.payload?.data) {
           try {
-            console.log('Transforming job post data:', action.payload.data);
-            state.selectedJobPost = transformJobPost(action.payload.data);
-            console.log('Transform successful');
+            const transformed = transformJobPost(action.payload.data);
+            const index = state.allJobPosts.findIndex(jp => jp.id === transformed.id);
+            if (index !== -1) {
+              state.allJobPosts[index] = transformed;
+            }
+            state.selectedJobPost = transformed;
           } catch (error) {
             console.error('Error transforming job post:', error);
-            // Don't fail the entire action if transform fails
-            state.error = null;
           }
         }
         state.error = null;
       })
       .addCase(updateJobPost.rejected, (state, action) => {
-        console.log('updateJobPost.rejected called with:', action.payload);
         state.isUpdating = false;
         state.error = action.payload || 'Failed to update job post';
-      });
+      })
 
-    // Delete job post
-    builder
+      // Delete job post
       .addCase(deleteJobPost.pending, (state) => {
         state.isDeleting = true;
         state.error = null;
       })
-      .addCase(deleteJobPost.fulfilled, (state) => {
+      .addCase(deleteJobPost.fulfilled, (state, action: PayloadAction<string>) => {
         state.isDeleting = false;
-        state.selectedJobPost = null;
+        state.allJobPosts = state.allJobPosts.filter(jp => jp.id !== action.payload);
+        if (state.selectedJobPost?.id === action.payload) {
+          state.selectedJobPost = null;
+        }
+        state.error = null;
       })
       .addCase(deleteJobPost.rejected, (state, action) => {
         state.isDeleting = false;
@@ -352,6 +359,6 @@ const jobPostsSlice = createSlice({
   },
 });
 
-export const { setSelectedJobPost, setSearchQuery, setFilterStatus, clearError } = jobPostsSlice.actions;
+export const { setSelectedJobPost, setSearchQuery, setFilterStatus, clearError, resetJobPosts } = jobPostsSlice.actions;
 
 export default jobPostsSlice.reducer;

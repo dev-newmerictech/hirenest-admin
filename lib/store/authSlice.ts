@@ -2,11 +2,13 @@
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { authApi, LoginRequest, LoginResponse } from '../api/auth';
+import { clearAllAdminCache } from '../cache/adminCache';
 
 interface User {
   id: string;
   email: string;
   firstName: string;
+  adminRole: 'super_admin' | 'marketing';
 }
 
 interface AuthState {
@@ -70,6 +72,7 @@ const authSlice = createSlice({
     // Action to logout
     logout: (state) => {
       authApi.logout();
+      clearAllAdminCache(); // fire-and-forget — async cleanup of IndexedDB
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;

@@ -1,4 +1,5 @@
 // Redux slice for companies (job providers) state management
+// Data is fetched once from API, cached in IndexedDB, and paginated client-side
 
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { 
@@ -8,49 +9,67 @@ import {
   transformCompany 
 } from '../api/companies';
 import { Company } from '../types';
-import type { RootState } from './index';
+import { getCachedData, setCachedData, CACHE_KEYS } from '../cache/adminCache';
 
 interface CompaniesState {
-  companies: Company[];
+  allCompanies: Company[];        // ALL companies (from IndexedDB or API)
   selectedCompany: Company | null;
-  pagination: {
-    currentPage: number;
-    totalPages: number;
-    totalItems: number;
-    itemsPerPage: number;
-  } | null;
   isLoading: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
   error: string | null;
   searchQuery: string;
+  lastFetchedAt: number | null;   // timestamp of last sync
 }
 
 // Initial state
 const initialState: CompaniesState = {
-  companies: [],
+  allCompanies: [],
   selectedCompany: null,
-  pagination: null,
   isLoading: false,
   isUpdating: false,
   isDeleting: false,
   error: null,
   searchQuery: '',
+  lastFetchedAt: null,
 };
 
-// Async thunk for fetching all companies
+// Load companies from IndexedDB cache
+export const loadCompaniesFromCache = createAsyncThunk<
+  { companies: Company[]; timestamp: number } | null,
+  void,
+  { rejectValue: string }
+>(
+  'companies/loadFromCache',
+  async (_, { rejectWithValue }) => {
+    try {
+      const cached = await getCachedData<Company[]>(
+        CACHE_KEYS.companies,
+        CACHE_KEYS.companiesTime
+      );
+      return cached ? { companies: cached.data, timestamp: cached.timestamp } : null;
+    } catch (error) {
+      return rejectWithValue('Failed to load from cache');
+    }
+  }
+);
+
+// Fetch ALL companies from API and store in IndexedDB
 export const fetchAllCompanies = createAsyncThunk<
-  CompaniesListResponse,
-  { page?: number; limit?: number } | void,
+  { companies: Company[]; timestamp: number },
+  void,
   { rejectValue: string }
 >(
   'companies/fetchAll',
-  async (params, { rejectWithValue }) => {
+  async (_, { rejectWithValue }) => {
     try {
-      const page = params && 'page' in params ? params.page : 1;
-      const limit = params && 'limit' in params ? params.limit : 10;
-      const response = await companiesApi.getAllCompanies(page, limit);
-      return response;
+      const response = await companiesApi.getAllCompanies(1, 100000);
+      const companies = response.data.jobProviders.map(transformCompany);
+
+      // Cache in IndexedDB
+      await setCachedData(CACHE_KEYS.companies, CACHE_KEYS.companiesTime, companies);
+
+      return { companies, timestamp: Date.now() };
     } catch (error) {
       return rejectWithValue(
         error instanceof Error ? error.message : 'Failed to fetch companies'
@@ -59,26 +78,55 @@ export const fetchAllCompanies = createAsyncThunk<
   }
 );
 
-// Async thunk for searching companies
-export const searchCompanies = createAsyncThunk<
-  CompaniesListResponse,
-  string,
+// Sync companies incrementally from API
+export const syncCompanies = createAsyncThunk<
+  { companies: Company[]; timestamp: number },
+  number,
   { rejectValue: string }
 >(
-  'companies/search',
-  async (query, { rejectWithValue }) => {
+  'companies/sync',
+  async (lastFetchedAt, { rejectWithValue }) => {
     try {
-      const response = await companiesApi.searchCompanies(query);
-      return response;
+      const since = new Date(lastFetchedAt).toISOString();
+      const response = await companiesApi.syncCompanies(since);
+      
+      const updatedApiRecords = response.data.updatedRecords;
+      const deletedIds = response.data.deletedIds;
+
+      const cached = await getCachedData<Company[]>(
+        CACHE_KEYS.companies,
+        CACHE_KEYS.companiesTime
+      );
+      
+      let currentRecords = cached?.data || [];
+      
+      currentRecords = currentRecords.filter(r => !deletedIds.includes(r.id));
+      
+      const updatedRecords = updatedApiRecords.map(transformCompany);
+      for (const updated of updatedRecords) {
+        const index = currentRecords.findIndex(r => r.id === updated.id);
+        if (index !== -1) {
+          currentRecords[index] = updated;
+        } else {
+          currentRecords.unshift(updated);
+        }
+      }
+
+      currentRecords.sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime());
+
+      const newTimestamp = Date.now();
+      await setCachedData(CACHE_KEYS.companies, CACHE_KEYS.companiesTime, currentRecords, newTimestamp);
+
+      return { companies: currentRecords, timestamp: newTimestamp };
     } catch (error) {
       return rejectWithValue(
-        error instanceof Error ? error.message : 'Failed to search companies'
+        error instanceof Error ? error.message : 'Failed to sync companies'
       );
     }
   }
 );
 
-// Async thunk for fetching company profile
+// Fetch company profile
 export const fetchCompanyProfile = createAsyncThunk<
   CompanyDetailResponse,
   string,
@@ -97,18 +145,16 @@ export const fetchCompanyProfile = createAsyncThunk<
   }
 );
 
-// Async thunk for toggling company status
+// Toggle company status
 export const toggleCompanyStatus = createAsyncThunk<
   CompanyDetailResponse,
   { id: string; isActive: boolean },
   { rejectValue: string }
 >(
   'companies/toggleStatus',
-  async ({ id, isActive }, { rejectWithValue, dispatch }) => {
+  async ({ id, isActive }, { rejectWithValue }) => {
     try {
       const response = await companiesApi.toggleCompanyStatus(id, isActive);
-      // Refetch all companies after successful toggle
-      dispatch(fetchAllCompanies());
       return response;
     } catch (error) {
       return rejectWithValue(
@@ -118,21 +164,16 @@ export const toggleCompanyStatus = createAsyncThunk<
   }
 );
 
-// Async thunk for updating company
+// Update company
 export const updateCompany = createAsyncThunk<
   CompanyDetailResponse,
   { id: string; data: { name?: string; email?: string; industry?: string; isDocumentVerified?: boolean } },
   { rejectValue: string }
 >(
   'companies/update',
-  async ({ id, data }, { rejectWithValue, dispatch, getState }) => {
+  async ({ id, data }, { rejectWithValue }) => {
     try {
       const response = await companiesApi.updateCompany(id, data);
-      // Refresh list to reflect latest data (e.g., verification changes)
-      const state = getState() as RootState;
-      const currentPage = state.companies.pagination?.currentPage || 1;
-      const itemsPerPage = state.companies.pagination?.itemsPerPage || 10;
-      dispatch(fetchAllCompanies({ page: currentPage, limit: itemsPerPage }));
       return response;
     } catch (error) {
       return rejectWithValue(
@@ -142,18 +183,16 @@ export const updateCompany = createAsyncThunk<
   }
 );
 
-// Async thunk for deleting company
+// Delete company
 export const deleteCompany = createAsyncThunk<
   string,
   string,
   { rejectValue: string }
 >(
   'companies/delete',
-  async (id, { rejectWithValue, dispatch }) => {
+  async (id, { rejectWithValue }) => {
     try {
       await companiesApi.deleteCompany(id);
-      // Refetch all companies after successful delete
-      dispatch(fetchAllCompanies());
       return id;
     } catch (error) {
       return rejectWithValue(
@@ -168,69 +207,69 @@ const companiesSlice = createSlice({
   name: 'companies',
   initialState,
   reducers: {
-    // Set search query
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload;
     },
-    
-    // Clear error
     clearError: (state) => {
       state.error = null;
     },
-    
-    // Clear selected company
     clearSelectedCompany: (state) => {
       state.selectedCompany = null;
     },
-    
-    // Reset companies state
-    resetCompanies: (state) => {
-      state.companies = [];
-      state.selectedCompany = null;
-      state.pagination = null;
-      state.isLoading = false;
-      state.isUpdating = false;
-      state.isDeleting = false;
-      state.error = null;
-      state.searchQuery = '';
-    },
+    resetCompanies: () => initialState,
   },
   extraReducers: (builder) => {
     builder
-      // Fetch all companies
+      // Load from cache
+      .addCase(loadCompaniesFromCache.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(loadCompaniesFromCache.fulfilled, (state, action) => {
+        if (action.payload) {
+          state.allCompanies = action.payload.companies;
+          state.lastFetchedAt = action.payload.timestamp;
+          state.isLoading = false;
+        } else {
+          state.isLoading = true;
+        }
+      })
+      .addCase(loadCompaniesFromCache.rejected, (state) => {
+        state.isLoading = true;
+      })
+
+      // Fetch all from API
       .addCase(fetchAllCompanies.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(fetchAllCompanies.fulfilled, (state, action: PayloadAction<CompaniesListResponse>) => {
+      .addCase(fetchAllCompanies.fulfilled, (state, action) => {
         state.isLoading = false;
-        // Transform API response to internal format
-        state.companies = action.payload.data.jobProviders.map(transformCompany);
-        state.pagination = action.payload.data.pagination;
+        state.allCompanies = action.payload.companies;
+        state.lastFetchedAt = action.payload.timestamp;
         state.error = null;
       })
       .addCase(fetchAllCompanies.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload || 'Failed to fetch companies';
       })
-      
-      // Search companies
-      .addCase(searchCompanies.pending, (state) => {
+
+      // Sync incrementally from API
+      .addCase(syncCompanies.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
-      .addCase(searchCompanies.fulfilled, (state, action: PayloadAction<CompaniesListResponse>) => {
+      .addCase(syncCompanies.fulfilled, (state, action) => {
         state.isLoading = false;
-        // Transform API response to internal format
-        state.companies = action.payload.data.jobProviders.map(transformCompany);
-        state.pagination = action.payload.data.pagination;
+        state.allCompanies = action.payload.companies;
+        state.lastFetchedAt = action.payload.timestamp;
         state.error = null;
       })
-      .addCase(searchCompanies.rejected, (state, action) => {
+      .addCase(syncCompanies.rejected, (state, action) => {
         state.isLoading = false;
-        state.error = action.payload || 'Failed to search companies';
+        state.error = action.payload || 'Failed to sync companies';
       })
-      
+
       // Fetch company profile
       .addCase(fetchCompanyProfile.pending, (state) => {
         state.isLoading = true;
@@ -245,7 +284,7 @@ const companiesSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload || 'Failed to fetch company profile';
       })
-      
+
       // Toggle status
       .addCase(toggleCompanyStatus.pending, (state) => {
         state.isUpdating = true;
@@ -254,12 +293,10 @@ const companiesSlice = createSlice({
       .addCase(toggleCompanyStatus.fulfilled, (state, action: PayloadAction<CompanyDetailResponse>) => {
         state.isUpdating = false;
         const transformedCompany = transformCompany(action.payload.data);
-        // Update in the list
-        const index = state.companies.findIndex(c => c.id === transformedCompany.id);
+        const index = state.allCompanies.findIndex(c => c.id === transformedCompany.id);
         if (index !== -1) {
-          state.companies[index] = transformedCompany;
+          state.allCompanies[index] = transformedCompany;
         }
-        // Update selected if it's the same one
         if (state.selectedCompany?.id === transformedCompany.id) {
           state.selectedCompany = transformedCompany;
         }
@@ -269,7 +306,7 @@ const companiesSlice = createSlice({
         state.isUpdating = false;
         state.error = action.payload || 'Failed to toggle status';
       })
-      
+
       // Update company
       .addCase(updateCompany.pending, (state) => {
         state.isUpdating = true;
@@ -278,10 +315,9 @@ const companiesSlice = createSlice({
       .addCase(updateCompany.fulfilled, (state, action: PayloadAction<CompanyDetailResponse>) => {
         state.isUpdating = false;
         const transformedCompany = transformCompany(action.payload.data);
-        // Update in the list
-        const index = state.companies.findIndex(c => c.id === transformedCompany.id);
+        const index = state.allCompanies.findIndex(c => c.id === transformedCompany.id);
         if (index !== -1) {
-          state.companies[index] = transformedCompany;
+          state.allCompanies[index] = transformedCompany;
         }
         state.selectedCompany = transformedCompany;
         state.error = null;
@@ -290,7 +326,7 @@ const companiesSlice = createSlice({
         state.isUpdating = false;
         state.error = action.payload || 'Failed to update company';
       })
-      
+
       // Delete company
       .addCase(deleteCompany.pending, (state) => {
         state.isDeleting = true;
@@ -298,9 +334,7 @@ const companiesSlice = createSlice({
       })
       .addCase(deleteCompany.fulfilled, (state, action: PayloadAction<string>) => {
         state.isDeleting = false;
-        // Remove from the list
-        state.companies = state.companies.filter(c => c.id !== action.payload);
-        // Clear selected if it was the deleted one
+        state.allCompanies = state.allCompanies.filter(c => c.id !== action.payload);
         if (state.selectedCompany?.id === action.payload) {
           state.selectedCompany = null;
         }
@@ -321,4 +355,3 @@ export const {
 } = companiesSlice.actions;
 
 export default companiesSlice.reducer;
-

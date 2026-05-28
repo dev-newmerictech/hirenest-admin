@@ -21,18 +21,26 @@ export interface JobSeekerDetailResponse {
   data: JobSeekerAPIResponse | { jobSeeker: JobSeekerAPIResponse };
 }
 
+export interface JobSeekerSyncResponse {
+  status: string;
+  data: {
+    updatedRecords: JobSeekerAPIResponse[];
+    deletedIds: string[];
+  };
+}
+
 // Transform API response to internal format
 export function transformJobSeeker(apiJobSeeker: JobSeekerAPIResponse): JobSeeker {
   return {
     id: apiJobSeeker._id,
     name: apiJobSeeker.name,
     email: apiJobSeeker.email,
-    phone:
-      apiJobSeeker.mobile?.countryCode != null && apiJobSeeker.mobile?.mobileNumber != null
-        ? `+${apiJobSeeker.mobile.countryCode}${apiJobSeeker.mobile.mobileNumber}`
-        : 'N/A',
     registrationDate: apiJobSeeker.createdAt,
     isActive: apiJobSeeker.isActive,
+    gender: apiJobSeeker.gender,
+    city: apiJobSeeker.address?.city,
+    state: apiJobSeeker.address?.state,
+    country: apiJobSeeker.address?.country,
   };
 }
 
@@ -110,6 +118,14 @@ export const jobSeekersApi = {
    */
   deleteJobSeeker: async (id: string): Promise<{ status: string; message: string }> => {
     return api.delete(`/admin/job-seekers/${id}`);
+  },
+
+  /**
+   * Sync job seekers incrementally
+   * GET /admin/job-seekers/sync?since={timestamp}
+   */
+  syncJobSeekers: async (since: string): Promise<JobSeekerSyncResponse> => {
+    return api.get<JobSeekerSyncResponse>(`/admin/job-seekers/sync?since=${encodeURIComponent(since)}`);
   },
 };
 
