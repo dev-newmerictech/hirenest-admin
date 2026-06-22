@@ -22,12 +22,12 @@
 
 // ─── Constants & Configuration ───────────────────────────────────────────────
 
-const DEFAULT_POST_COUNT = 5;
+const DEFAULT_POST_COUNT = 3;
 const DELAY_BETWEEN_POSTS_MS = 3_000; // 3 seconds between posts
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "llama-3.3-70b-versatile"; // Extremely high quality, free, fast model
+const GROQ_MODEL = "openai/gpt-oss-120b"; // Massive 120B model with built-in web search
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"; // Fallback Llama model on OpenRouter
 const OPENAI_MODEL = "gpt-4o-mini"; // Fallback if no OpenRouter/Groq key
 const MAX_RETRIES = 2;
@@ -87,7 +87,7 @@ const TOPIC_CATEGORIES = [
  * Returns an array of headline strings. Falls back to empty array on failure.
  */
 async function fetchLiveHeadlines(maxHeadlines: number = 15): Promise<string[]> {
-  const RSS_URL = "https://news.google.com/rss/search?q=technology+OR+software+OR+AI+OR+developer&hl=en-US&gl=US&ceid=US:en";
+  const RSS_URL = "https://news.google.com/rss/search?q=technology+OR+software+OR+developer+OR+Anthropic+OR+Claude+OR+OpenAI+OR+ChatGPT+OR+LLM+OR+%22artificial+intelligence%22&hl=en-US&gl=US&ceid=US:en";
 
   try {
     log("Fetching live tech headlines from Google News...", "cyan");
@@ -212,18 +212,20 @@ async function generateBlogPost(
 
   const prompt = `You are an elite Technology News Correspondent and Principal Systems Architect writing highly viral, authoritative content for Hirenest (hirenest.ai), a premier platform mapping top developer talent to cutting-edge tech enterprises.
 
-Write a deeply exhaustive, breaking news analysis and comprehensive technical deep dive about: "${topic}"
+First, use your built-in web search capabilities to research: "${topic}". Find the latest, real-time facts, updates, and community reactions regarding this news.
+
+Then, write a deeply exhaustive, breaking news analysis and comprehensive technical deep dive about it.
 
 STRICT EDITORIAL, LENGTH & GOOGLE SEO REQUIREMENTS:
-1. Target Length & Absolute Depth: MINIMUM 2,500 words. To achieve this, expand every single section with dense, exhaustive prose, deep structural evaluations, concrete workflow examples, and granular technological breakdowns. Do not write summary fluff.
+1. Target Length & Absolute Depth: MINIMUM 2,500 words. Expand every section with dense, exhaustive prose, concrete workflow examples, and granular technological breakdowns.
 2. Mandatory Multi-Level Structure:
-   - Start immediately with a sharp, high-burstiness news hook establishing the current stakes in ${new Date().getFullYear()} (do not label it with a heading).
+   - Start immediately with a sharp, high-burstiness news hook (no heading).
    - Create exactly 6 to 8 comprehensive main conceptual sections using ##.
-   - For EVERY single main section, you MUST create at least 3 distinct, granular subsections using ### exploring concrete frameworks, developer productivity metrics, architectural trade-offs, ecosystem impacts, or step-by-step engineering considerations.
-   - Integrate structured comparison bullet points and bold key takeaways to optimize developer scannability.
-3. Human-First Tone (Google E-E-A-T Compliant): Interleave short, punchy analytical sentences with longer, complex evaluations. Avoid recognizable AI symmetry. Use active voice and write with the authoritative pacing of a seasoned Tech Editor or CTO analyzing real-time market shifts.
-4. FORBIDDEN AI CLICHÉS: Absolutely DO NOT use classic AI triggers such as: "delve into", "tapestry", "testament", "crucial", "paramount", "supercharge", "it's important to note", "moreover", "ultimately", or boilerplate wrappers like "in conclusion" or "in summary".
-5. Context & Up-to-Date Authority: Frame the analysis around breaking technology releases, live industry restructurings, state-of-the-art developer toolchains, and modern cloud paradigms. Synthesize core takeaways naturally alongside a subtle, helpful reference to Hirenest's developer platform.
+   - For EVERY single main section, create at least 3 distinct subsections using ### exploring concrete frameworks or architectural trade-offs.
+   - Integrate structured comparison bullet points and bold key takeaways.
+3. Human-First Tone: This must NOT sound like AI. Write with high burstiness, varying sentence lengths drastically. Interleave short, punchy analytical sentences with longer, complex evaluations. Be opinionated, slightly edgy, and authoritative like a seasoned CTO analyzing real-time market shifts.
+4. FORBIDDEN AI CLICHÉS: Absolutely DO NOT use classic AI triggers such as: "delve into", "tapestry", "testament", "crucial", "paramount", "supercharge", "it's important to note", "moreover", "ultimately", "in conclusion", "in summary", "foster", "beacon", "landscape".
+5. Context & Up-to-Date Authority: Frame the analysis around the breaking facts you just researched.
 6. Absolute Exclusions: DO NOT output markdown headers/frontmatter. DO NOT repeat the post title as an H1 inside the body text.
 
 Also provide the following metadata in a JSON block at the VERY END of your response, after all the blog content:
@@ -367,60 +369,108 @@ async function callAI(
   throw new Error("All retry attempts exhausted");
 }
 
-// ─── Convex Publisher ────────────────────────────────────────────────────────
+// ─── S3 Publisher ────────────────────────────────────────────────────────
+import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || "us-east-1",
+  // Relies on AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables
+});
+
+const S3_BUCKET_NAME = process.env.AWS_S3_BUCKET_NAME || "hirenest-blog-content-1782152942";
 
 /**
- * Publish a blog post to the Convex database.
- *
- * Uses the Convex HTTP API directly (no SDK dependency needed).
- * The createOrUpdatePost mutation has no server-side auth check —
- * it relies on Supabase auth at the dashboard route level, so we can
- * call it directly from a script using the HTTP API.
+ * Helper to get an object from S3 as string
  */
-async function publishToConvex(
-  convexUrl: string,
-  post: BlogPost
-): Promise<boolean> {
+async function getS3ObjectAsString(key: string): Promise<string | null> {
   try {
-    // Convex HTTP API endpoint for mutations
-    // Format: POST https://<deployment>.convex.cloud/api/mutation
-    const apiUrl = convexUrl.replace(/\/$/, "") + "/api/mutation";
+    const response = await s3Client.send(new GetObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: key,
+    }));
+    
+    if (response.Body) {
+      return await response.Body.transformToString();
+    }
+    return null;
+  } catch (error: any) {
+    if (error.name === 'NoSuchKey') {
+      return null; // Normal if it doesn't exist yet
+    }
+    throw error;
+  }
+}
 
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        path: "posts:createOrUpdatePost",
-        args: {
-          slug: post.slug,
-          title: post.title,
-          description: post.description,
-          content: post.content,
-          date: post.date,
-          published: post.published,
-          tags: post.tags,
-          readTime: post.readTime,
-          authorName: post.authorName,
-        },
-      }),
+/**
+ * Publish a blog post directly to S3.
+ *
+ * 1. Uploads the full post JSON to `slug.json`.
+ * 2. Fetches `index.json`
+ * 3. Prepends the post summary to `index.json`
+ * 4. Re-uploads `index.json`
+ */
+async function publishToS3(post: BlogPost): Promise<boolean> {
+  try {
+    // 1. Upload the full post to slug.json
+    log(`    Uploading full post to ${post.slug}.json...`, "gray");
+    const fullPostCommand = new PutObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: `${post.slug}.json`,
+      Body: JSON.stringify(post),
+      ContentType: "application/json",
+      CacheControl: "public, max-age=3600, stale-while-revalidate=86400",
     });
+    await s3Client.send(fullPostCommand);
 
-    if (!response.ok) {
-      const errorBody = await response.text();
-      throw new Error(`Convex API error (${response.status}): ${errorBody}`);
+    // 2. Fetch current index.json
+    log(`    Fetching index.json...`, "gray");
+    const indexDataStr = await getS3ObjectAsString("index.json");
+    let indexData: any[] = [];
+    if (indexDataStr) {
+      try {
+        indexData = JSON.parse(indexDataStr);
+      } catch (err) {
+        log(`    ⚠ Could not parse index.json. Creating new.`, "yellow");
+      }
     }
 
-    const result = await response.json();
+    // 3. Prepend the new post summary
+    const summary = {
+      slug: post.slug,
+      title: post.title,
+      description: post.description,
+      date: post.date,
+      published: post.published,
+      tags: post.tags,
+      readTime: post.readTime,
+      authorName: post.authorName,
+      // Extracted from original content logic
+      excerpt: post.description,
+    };
 
-    if (result.status === "error") {
-      throw new Error(`Convex mutation error: ${result.errorMessage || JSON.stringify(result)}`);
-    }
+    // Remove if already exists (in case of re-run with same slug)
+    indexData = indexData.filter((p) => p.slug !== post.slug);
+    
+    // Prepend to top (since we sort newest first)
+    indexData.unshift(summary);
+
+    // Ensure array is sorted descending by date just to be safe
+    indexData.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // 4. Re-upload index.json
+    log(`    Uploading updated index.json (${indexData.length} total posts)...`, "gray");
+    const indexCommand = new PutObjectCommand({
+      Bucket: S3_BUCKET_NAME,
+      Key: "index.json",
+      Body: JSON.stringify(indexData),
+      ContentType: "application/json",
+      CacheControl: "public, max-age=300, stale-while-revalidate=3600",
+    });
+    await s3Client.send(indexCommand);
 
     return true;
   } catch (err: any) {
-    log(`    ✗ Publish failed: ${err.message}`, "red");
+    log(`    ✗ Publish to S3 failed: ${err.message}`, "red");
     return false;
   }
 }
@@ -499,15 +549,6 @@ async function main() {
     process.exit(1);
   }
 
-  if (!convexUrl && !dryRun) {
-    log(
-      "Error: NEXT_PUBLIC_CONVEX_URL environment variable is not set",
-      "red"
-    );
-    log("Set it in your .env file or GitHub Actions secrets", "yellow");
-    process.exit(1);
-  }
-
   const isGroq = !!groqKey;
   const isOpenRouter = !isGroq && apiKey.startsWith("sk-or-");
   const displayModel = isGroq ? GROQ_MODEL : (isOpenRouter ? OPENROUTER_MODEL : OPENAI_MODEL);
@@ -518,7 +559,7 @@ async function main() {
   log(`  AI Model:          ${displayModel}`, "gray");
   log(`  Cost:              ${costNote}`, isOpenRouter ? "green" : "yellow");
   log(`  Mode:              ${dryRun ? "DRY RUN (no publishing)" : "LIVE"}`, dryRun ? "yellow" : "green");
-  log(`  Convex URL:        ${convexUrl ? convexUrl.substring(0, 40) + "..." : "N/A"}`, "gray");
+  log(`  S3 Bucket:         ${S3_BUCKET_NAME}`, "gray");
   console.log("");
 
   const startTime = Date.now();
@@ -544,9 +585,9 @@ async function main() {
         log(`    [DRY RUN] Would publish: "${post.slug}"`, "yellow");
         results.push({ topic, success: true });
       } else {
-        // Publish to Convex
-        log(`    Publishing to Convex...`, "gray");
-        const success = await publishToConvex(convexUrl!, post);
+        // Publish to S3
+        log(`    Publishing to S3...`, "gray");
+        const success = await publishToS3(post);
 
         if (success) {
           log(`    ✓ Published: /blog/${post.slug}`, "green");
