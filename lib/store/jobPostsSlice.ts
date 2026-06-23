@@ -163,7 +163,7 @@ export const syncJobPosts = createAsyncThunk<
       currentRecords.sort((a, b) => new Date(b.postedDate).getTime() - new Date(a.postedDate).getTime());
 
       const newTimestamp = Date.now();
-      await setCachedData(CACHE_KEYS.jobPosts, CACHE_KEYS.jobPostsTime, currentRecords, newTimestamp);
+      await setCachedData(CACHE_KEYS.jobPosts, CACHE_KEYS.jobPostsTime, currentRecords);
 
       return { jobPosts: currentRecords, timestamp: newTimestamp };
     } catch (error) {

@@ -123,7 +123,7 @@ export const syncJobSeekers = createAsyncThunk<
 
       // 7. Save back to IndexedDB
       const newTimestamp = Date.now();
-      await setCachedData(CACHE_KEYS.jobSeekers, CACHE_KEYS.jobSeekersTime, currentRecords, newTimestamp);
+      await setCachedData(CACHE_KEYS.jobSeekers, CACHE_KEYS.jobSeekersTime, currentRecords);
 
       return { jobSeekers: currentRecords, timestamp: newTimestamp };
     } catch (error) {

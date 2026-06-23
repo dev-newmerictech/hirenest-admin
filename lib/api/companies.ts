@@ -47,6 +47,8 @@ export function transformCompany(apiCompany: CompanyAPIResponse): Company {
     isVerified: apiCompany.isVerified || false,
     verificationStatus,
     isDocumentVerified: apiCompany.isDocumentVerified,
+    acquisitionSource: apiCompany.createdBy?.acquisitionSource,
+    isOnboarded: apiCompany.isOnboarded,
   };
 }
 

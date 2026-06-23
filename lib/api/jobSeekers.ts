@@ -41,6 +41,9 @@ export function transformJobSeeker(apiJobSeeker: JobSeekerAPIResponse): JobSeeke
     city: apiJobSeeker.address?.city,
     state: apiJobSeeker.address?.state,
     country: apiJobSeeker.address?.country,
+    acquisitionSource: apiJobSeeker.createdBy?.acquisitionSource,
+    isOnboarded: apiJobSeeker.isOnboarded,
+    phone: apiJobSeeker.mobile && apiJobSeeker.mobile.mobileNumber ? `+${apiJobSeeker.mobile.countryCode} ${apiJobSeeker.mobile.mobileNumber}` : undefined,
   };
 }
 

@@ -87,7 +87,7 @@ const ClusteredMarkers = ({ data }: { data: UserLocationDTO[] }) => {
               position={{ lat: latitude, lng: longitude }}
               onClick={() => {
                 const expansionZoom = Math.min(
-                  supercluster.getClusterExpansionZoom(cluster.id as number),
+                  supercluster?.getClusterExpansionZoom(cluster.id as number) ?? 20,
                   20
                 );
                 map?.setZoom(expansionZoom);

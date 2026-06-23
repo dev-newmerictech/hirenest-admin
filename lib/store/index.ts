@@ -7,6 +7,7 @@ import jobSeekersReducer from './jobSeekersSlice';
 import companiesReducer from './companiesSlice';
 import jobPostsReducer from './jobPostsSlice';
 import feedbackAnalyticsReducer from './feedbackAnalyticsSlice';
+import notOnboardedReducer from './notOnboardedSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     dashboard: dashboardReducer,
     jobSeekers: jobSeekersReducer,
     companies: companiesReducer,
+    notOnboarded: notOnboardedReducer,
     jobPosts: jobPostsReducer,
     feedbackAnalytics: feedbackAnalyticsReducer,
   },

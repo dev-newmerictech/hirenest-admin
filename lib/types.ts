@@ -17,6 +17,9 @@ export interface JobSeeker {
   city?: string
   state?: string
   country?: string
+  acquisitionSource?: string
+  isOnboarded?: boolean
+  phone?: string
 }
 
 // API Response format from backend
@@ -42,6 +45,12 @@ export interface JobSeekerAPIResponse {
       longitude: number
     }
   }
+  createdBy?: {
+    _id: string
+    acquisitionSource?: string
+    acquisitionData?: Record<string, string>
+  }
+  isOnboarded?: boolean
 }
 
 export interface Company {
@@ -54,6 +63,8 @@ export interface Company {
   isVerified: boolean
   verificationStatus: "pending" | "approved" | "rejected"
   isDocumentVerified?: boolean
+  acquisitionSource?: string
+  isOnboarded?: boolean
 }
 
 // API Response format from backend for companies
@@ -71,6 +82,12 @@ export interface CompanyAPIResponse {
   verificationStatus?: "pending" | "approved" | "rejected"
   isDocumentVerified?: boolean
   createdAt: string
+  createdBy?: {
+    _id: string
+    acquisitionSource?: string
+    acquisitionData?: Record<string, string>
+  }
+  isOnboarded?: boolean
 }
 
 export interface JobPostAPIResponse {
