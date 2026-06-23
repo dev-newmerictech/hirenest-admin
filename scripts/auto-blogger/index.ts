@@ -27,7 +27,7 @@ const DELAY_BETWEEN_POSTS_MS = 3_000; // 3 seconds between posts
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "openai/gpt-oss-120b"; // Massive 120B model with built-in web search
+const GROQ_MODEL = "groq/compound"; // Compound system with built-in web search
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"; // Fallback Llama model on OpenRouter
 const OPENAI_MODEL = "gpt-4o-mini"; // Fallback if no OpenRouter/Groq key
 const MAX_RETRIES = 2;
@@ -142,8 +142,9 @@ async function generateTopics(
     day: "numeric",
   });
 
-  // Fetch real headlines for grounding
+  // Fetch real headlines for grounding and shuffle them to ensure variety
   const liveHeadlines = await fetchLiveHeadlines(15);
+  const shuffledHeadlines = [...liveHeadlines].sort(() => Math.random() - 0.5);
 
   // Pick random categories to ensure variety
   const shuffled = [...TOPIC_CATEGORIES].sort(() => Math.random() - 0.5);
@@ -153,17 +154,30 @@ async function generateTopics(
   const randomSeed = Math.random().toString(36).substring(2, 8);
 
   // Build the live news context block
-  const newsContext = liveHeadlines.length > 0
-    ? `\n\nHere are REAL trending technology headlines from today. Use these as inspiration to create titles grounded in actual current events:\n${liveHeadlines.map((h, i) => `${i + 1}. ${h}`).join("\n")}\n\nBase your titles on these real stories — expand them into deeper, more analytical angles. Do NOT copy them verbatim.`
+  const newsContext = shuffledHeadlines.length > 0
+    ? `\n\nHere are REAL trending technology headlines from today. Use these as inspiration to create titles grounded in actual current events:\n${shuffledHeadlines.map((h, i) => `${i + 1}. ${h}`).join("\n")}\n\nBase your titles on these real stories — expand them into deeper, more analytical angles. Do NOT copy them verbatim.`
     : "";
+
+  // Fetch recent titles from S3 to prevent duplicates
+  let recentTitlesContext = "";
+  try {
+    const indexDataStr = await getS3ObjectAsString("index.json");
+    if (indexDataStr) {
+      const indexData = JSON.parse(indexDataStr);
+      const recentTitles = indexData.slice(0, 30).map((p: any) => p.title);
+      recentTitlesContext = `\n\nCRITICAL AVOIDANCE LIST:\nDo NOT write about these topics that we have already covered recently:\n${recentTitles.map((t: string) => `- ${t}`).join("\n")}\n\nPick completely different angles and stories from the headlines.`;
+    }
+  } catch (err) {
+    log("    ⚠ Could not fetch recent titles for duplicate prevention", "yellow");
+  }
 
   const prompt = `You are a top-tier technology news editor and enterprise software strategist for Hirenest (hirenest.ai).
 
 Today is ${today}. Generation Seed Context: [${randomSeed}]
-${newsContext}
+${newsContext}${recentTitlesContext}
 
 Generate exactly ${count} highly clickable, viral, and authoritative technology news or industry trend article titles. Each title should be:
-- Grounded in real, current tech events happening right now${liveHeadlines.length > 0 ? " (use the headlines above as a starting point)" : ""}
+- Grounded in real, current tech events happening right now${shuffledHeadlines.length > 0 ? " (use the headlines above as a starting point)" : ""}
 - Focused on breaking tech developments, critical software industry shifts, developer tool evolutions, or cutting-edge enterprise strategies
 - Exceptionally timely and framed around major real-time movements in ${new Date().getFullYear()}
 - Highly specific and engaging to experienced software engineers, tech managers, and digital leaders
@@ -412,10 +426,10 @@ async function getS3ObjectAsString(key: string): Promise<string | null> {
 async function publishToS3(post: BlogPost): Promise<boolean> {
   try {
     // 1. Upload the full post to slug.json
-    log(`    Uploading full post to ${post.slug}.json...`, "gray");
+    log(`    Uploading full post to posts/${post.slug}.json...`, "gray");
     const fullPostCommand = new PutObjectCommand({
       Bucket: S3_BUCKET_NAME,
-      Key: `${post.slug}.json`,
+      Key: `posts/${post.slug}.json`,
       Body: JSON.stringify(post),
       ContentType: "application/json",
       CacheControl: "public, max-age=3600, stale-while-revalidate=86400",
