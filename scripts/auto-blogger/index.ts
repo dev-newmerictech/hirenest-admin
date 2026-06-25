@@ -15,7 +15,7 @@
  *
  * Required Environment Variables:
  *   OPENAI_API_KEY or OPENROUTER_API_KEY — API key for generation
- *   NEXT_PUBLIC_CONVEX_URL               — Convex deployment URL
+ *   AWS_ACCESS_KEY_ID & AWS_SECRET_ACCESS_KEY — For S3 publishing
  *
  * ═══════════════════════════════════════════════════════════════════════════
  */
@@ -555,7 +555,6 @@ async function main() {
   const oaiKey = process.env.OPENAI_API_KEY;
   
   const apiKey = groqKey || orKey || oaiKey;
-  const convexUrl = process.env.NEXT_PUBLIC_CONVEX_URL;
 
   if (!apiKey) {
     log("Error: GROQ_API_KEY, OPENAI_API_KEY or OPENROUTER_API_KEY is not set", "red");
