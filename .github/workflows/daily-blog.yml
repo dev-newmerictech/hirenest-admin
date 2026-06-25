@@ -61,7 +61,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          npm ci
+          npm ci --legacy-peer-deps
           npm install -g tsx
 
       # ── 4. Run the auto-blogger script ──
