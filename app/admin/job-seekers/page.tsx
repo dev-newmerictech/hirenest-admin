@@ -12,6 +12,7 @@ import { DataTable, type Column } from "@/components/admin/data-table"
 import { ActionButtons } from "@/components/admin/action-buttons"
 import { StatusBadge } from "@/components/admin/status-badge"
 import { DetailDrawer } from "@/components/admin/detail-drawer"
+import { SourceBadge } from "@/components/admin/source-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -40,7 +41,7 @@ import { useCanWrite } from "@/lib/rbacConfig"
 import { exportToExcel } from "@/lib/utils/excelExport"
 import type { JobSeeker } from "@/lib/types"
 import { format, formatDistanceToNow } from "date-fns"
-import { RefreshCw, Download } from "lucide-react"
+import { RefreshCw, Download, CheckCircle, XCircle } from "lucide-react"
 
 const ITEMS_PER_PAGE = 10
 
@@ -90,10 +91,11 @@ export default function JobSeekersPage() {
 
   // Filter job seekers based on search query (client-side)
   const filteredJobSeekers = useMemo(() => {
-    if (!searchQuery.trim()) return allJobSeekers
+    const onboardedSeekers = allJobSeekers.filter(seeker => seeker.isOnboarded)
+    if (!searchQuery.trim()) return onboardedSeekers
     
     const query = searchQuery.toLowerCase()
-    return allJobSeekers.filter(
+    return onboardedSeekers.filter(
       (seeker) =>
         seeker.name.toLowerCase().includes(query) ||
         seeker.email.toLowerCase().includes(query) ||
@@ -148,6 +150,7 @@ export default function JobSeekersPage() {
       City: seeker.city || 'N/A',
       State: seeker.state || 'N/A',
       Country: seeker.country || 'N/A',
+      Source: seeker.acquisitionSource || 'direct',
       'Registration Date': format(new Date(seeker.registrationDate), "yyyy-MM-dd"),
       Status: seeker.isActive ? 'Active' : 'Inactive',
     }))
@@ -294,6 +297,11 @@ export default function JobSeekersPage() {
       key: "isActive",
       label: "Status",
       render: (item) => <StatusBadge status={item.isActive} />,
+    },
+    {
+      key: "acquisitionSource",
+      label: "Source",
+      render: (item) => <SourceBadge source={item.acquisitionSource} />,
     },
     {
       key: "actions",
@@ -483,6 +491,12 @@ export default function JobSeekersPage() {
                 <Label>Status</Label>
                 <div className="mt-1">
                   <StatusBadge status={selectedJobSeeker.isActive} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Acquisition Source</Label>
+                <div className="mt-1">
+                  <SourceBadge source={selectedJobSeeker.acquisitionSource} />
                 </div>
               </div>
 

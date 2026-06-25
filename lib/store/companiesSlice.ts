@@ -115,7 +115,7 @@ export const syncCompanies = createAsyncThunk<
       currentRecords.sort((a, b) => new Date(b.registrationDate).getTime() - new Date(a.registrationDate).getTime());
 
       const newTimestamp = Date.now();
-      await setCachedData(CACHE_KEYS.companies, CACHE_KEYS.companiesTime, currentRecords, newTimestamp);
+      await setCachedData(CACHE_KEYS.companies, CACHE_KEYS.companiesTime, currentRecords);
 
       return { companies: currentRecords, timestamp: newTimestamp };
     } catch (error) {

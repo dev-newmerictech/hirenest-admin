@@ -11,6 +11,7 @@ import { SearchBar } from "@/components/admin/search-bar"
 import { DataTable, type Column } from "@/components/admin/data-table"
 import { StatusBadge } from "@/components/admin/status-badge"
 import { DetailDrawer } from "@/components/admin/detail-drawer"
+import { SourceBadge } from "@/components/admin/source-badge"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -41,7 +42,7 @@ import { useCanWrite } from "@/lib/rbacConfig"
 import { exportToExcel } from "@/lib/utils/excelExport"
 import type { Company } from "@/lib/types"
 import { format, formatDistanceToNow } from "date-fns"
-import { MoreVertical, Eye, Ban, CheckCircle, Trash2, ShieldCheck, ShieldX, User, RefreshCw, Download } from "lucide-react"
+import { MoreVertical, Eye, Ban, CheckCircle, Trash2, ShieldCheck, ShieldX, User, RefreshCw, Download, XCircle } from "lucide-react"
 
 const ITEMS_PER_PAGE = 10
 
@@ -90,10 +91,11 @@ export default function CompaniesPage() {
 
   // Filter companies based on search query (client-side)
   const filteredCompanies = useMemo(() => {
-    if (!searchQuery.trim()) return allCompanies
+    const onboardedCompanies = allCompanies.filter(company => company.isOnboarded)
+    if (!searchQuery.trim()) return onboardedCompanies
     
     const query = searchQuery.toLowerCase()
-    return allCompanies.filter(
+    return onboardedCompanies.filter(
       (company) =>
         company.name.toLowerCase().includes(query) ||
         company.email.toLowerCase().includes(query) ||
@@ -144,6 +146,7 @@ export default function CompaniesPage() {
       'Company Name': company.name,
       Email: company.email,
       Industry: company.industry,
+      Source: company.acquisitionSource || 'direct',
       'Registration Date': format(new Date(company.registrationDate), "yyyy-MM-dd"),
       Status: company.isActive ? 'Active' : 'Inactive',
       Verification: getVerificationStatus(company).charAt(0).toUpperCase() + getVerificationStatus(company).slice(1),
@@ -344,6 +347,11 @@ export default function CompaniesPage() {
       },
     },
     {
+      key: "acquisitionSource",
+      label: "Source",
+      render: (item) => <SourceBadge source={item.acquisitionSource} />,
+    },
+    {
       key: "actions",
       label: "Actions",
       render: (item) => (
@@ -542,6 +550,12 @@ export default function CompaniesPage() {
                 <Label>Status</Label>
                 <div className="mt-1">
                   <StatusBadge status={selectedCompany.isActive} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Acquisition Source</Label>
+                <div className="mt-1">
+                  <SourceBadge source={selectedCompany.acquisitionSource} />
                 </div>
               </div>
               <div className="space-y-2">
