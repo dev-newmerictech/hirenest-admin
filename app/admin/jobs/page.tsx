@@ -24,7 +24,6 @@ import {
   fetchAllJobPosts, 
   deleteJobPost, 
   updateJobPost, 
-  setSearchQuery, 
   setFilterStatus,
   syncJobPosts
 } from "@/lib/store/jobPostsSlice"
@@ -42,7 +41,7 @@ export default function JobsPage() {
   const { toast } = useToast()
   const dispatch = useAppDispatch()
   const canWrite = useCanWrite()
-  const { allJobPosts, isLoading, isUpdating, isDeleting, error, searchQuery, filterStatus, lastFetchedAt } = useAppSelector(
+  const { allJobPosts, isLoading, isUpdating, isDeleting, error, filterStatus, lastFetchedAt } = useAppSelector(
     (state) => state.jobPosts
   )
   
@@ -51,6 +50,7 @@ export default function JobsPage() {
   const [formData, setFormData] = useState<Partial<Job>>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Load from IndexedDB cache on mount, fetch from API if no cache
   useEffect(() => {
@@ -210,7 +210,7 @@ export default function JobsPage() {
   }
 
   const handleSearchChange = (value: string) => {
-    dispatch(setSearchQuery(value))
+    setSearchQuery(value)
     setCurrentPage(1)
   }
 

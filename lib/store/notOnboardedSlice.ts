@@ -7,7 +7,6 @@ interface NotOnboardedState {
   isLoading: boolean;
   isDeleting: boolean;
   error: string | null;
-  searchQuery: string;
   lastFetchedAt: number | null;
 }
 
@@ -16,7 +15,6 @@ const initialState: NotOnboardedState = {
   isLoading: false,
   isDeleting: false,
   error: null,
-  searchQuery: '',
   lastFetchedAt: null,
 };
 
@@ -25,8 +23,11 @@ const transformUser = (apiUser: any): NotOnboardedUser => ({
   name: apiUser.name,
   email: apiUser.email,
   registrationDate: apiUser.createdAt,
+  createdAt: apiUser.createdAt,
   isActive: apiUser.isActive,
   isOnboarded: apiUser.isOnboarded,
+  role: apiUser.role,
+  onboardingStage: apiUser.onboardingStage,
   source: apiUser.createdBy?.acquisitionSource || 'direct',
   sourceData: apiUser.createdBy?.acquisitionData || {},
 });
@@ -127,9 +128,6 @@ const notOnboardedSlice = createSlice({
   name: 'notOnboarded',
   initialState,
   reducers: {
-    setSearchQuery: (state, action: PayloadAction<string>) => {
-      state.searchQuery = action.payload;
-    },
     clearError: (state) => {
       state.error = null;
     },
@@ -137,11 +135,18 @@ const notOnboardedSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // Load Cache
+      .addCase(loadNotOnboardedFromCache.pending, (state) => {
+        state.isLoading = true;
+      })
       .addCase(loadNotOnboardedFromCache.fulfilled, (state, action) => {
         if (action.payload) {
           state.allNotOnboarded = action.payload.users;
           state.lastFetchedAt = action.payload.timestamp;
         }
+        state.isLoading = false;
+      })
+      .addCase(loadNotOnboardedFromCache.rejected, (state) => {
+        state.isLoading = false;
       })
       // Fetch All
       .addCase(fetchAllNotOnboarded.pending, (state) => {
@@ -178,5 +183,5 @@ const notOnboardedSlice = createSlice({
   },
 });
 
-export const { setSearchQuery, clearError } = notOnboardedSlice.actions;
+export const { clearError } = notOnboardedSlice.actions;
 export default notOnboardedSlice.reducer;

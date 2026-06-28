@@ -28,7 +28,6 @@ import {
   loadNotOnboardedFromCache,
   fetchAllNotOnboarded,
   deleteNotOnboardedUser,
-  setSearchQuery,
   clearError,
   syncNotOnboarded,
 } from "@/lib/store/notOnboardedSlice"
@@ -46,7 +45,7 @@ export default function NotOnboardedPage() {
   const canWrite = useCanWrite()
   
   // Redux state
-  const { allNotOnboarded, isLoading, isDeleting, error, searchQuery, lastFetchedAt } = useAppSelector(
+  const { allNotOnboarded, isLoading, isDeleting, error, lastFetchedAt } = useAppSelector(
     (state) => state.notOnboarded
   )
   
@@ -55,6 +54,7 @@ export default function NotOnboardedPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Load from IndexedDB cache on mount, fetch from API if no cache
   useEffect(() => {
@@ -88,8 +88,10 @@ export default function NotOnboardedPage() {
     const query = searchQuery.toLowerCase()
     return allNotOnboarded.filter(
       (user) =>
+        user && user.id && (
         user.name.toLowerCase().includes(query) ||
         user.email.toLowerCase().includes(query)
+        )
     )
   }, [searchQuery, allNotOnboarded])
 
@@ -141,8 +143,8 @@ export default function NotOnboardedPage() {
     exportToExcel(rows, `not_onboarded_${format(new Date(), 'yyyy-MM-dd')}`)
   }, [allNotOnboarded, toast])
 
-  const handleSearch = (value: string) => {
-    dispatch(setSearchQuery(value))
+  const handleSearchChange = (value: string) => {
+    setSearchQuery(value)
     setCurrentPage(1)
   }
 
@@ -321,7 +323,7 @@ export default function NotOnboardedPage() {
 
           <div className="flex flex-col tablet:flex-row tablet:items-center justify-between gap-4">
             <SearchBar 
-              onChange={handleSearch} 
+              onChange={handleSearchChange} 
               placeholder="Search by name or email..." 
               value={searchQuery}
             />
@@ -345,12 +347,17 @@ export default function NotOnboardedPage() {
             </div>
           </div>
 
-          <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
-            <DataTable 
-              columns={columns} 
-              data={paginatedUsers} 
-            />
-          </div>
+          {isLoading ? (
+            <div className="h-64 rounded-xl bg-muted animate-pulse" />
+          ) : (
+            <div className="bg-card rounded-xl border border-border shadow-sm overflow-hidden">
+              <DataTable 
+                columns={columns} 
+                data={paginatedUsers} 
+                emptyMessage="No users found"
+              />
+            </div>
+          )}
 
           {!isLoading && totalPages > 1 && (
             <div className="mt-6">

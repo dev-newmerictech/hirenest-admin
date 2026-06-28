@@ -18,7 +18,6 @@ interface CompaniesState {
   isUpdating: boolean;
   isDeleting: boolean;
   error: string | null;
-  searchQuery: string;
   lastFetchedAt: number | null;   // timestamp of last sync
 }
 
@@ -30,7 +29,6 @@ const initialState: CompaniesState = {
   isUpdating: false,
   isDeleting: false,
   error: null,
-  searchQuery: '',
   lastFetchedAt: null,
 };
 
@@ -207,8 +205,8 @@ const companiesSlice = createSlice({
   name: 'companies',
   initialState,
   reducers: {
-    setSearchQuery: (state, action: PayloadAction<string>) => {
-      state.searchQuery = action.payload;
+    setSelectedCompany: (state, action: PayloadAction<Company | null>) => {
+      state.selectedCompany = action.payload;
     },
     clearError: (state) => {
       state.error = null;
@@ -229,13 +227,11 @@ const companiesSlice = createSlice({
         if (action.payload) {
           state.allCompanies = action.payload.companies;
           state.lastFetchedAt = action.payload.timestamp;
-          state.isLoading = false;
-        } else {
-          state.isLoading = true;
         }
+        state.isLoading = false;
       })
       .addCase(loadCompaniesFromCache.rejected, (state) => {
-        state.isLoading = true;
+        state.isLoading = false;
       })
 
       // Fetch all from API
@@ -348,7 +344,6 @@ const companiesSlice = createSlice({
 });
 
 export const { 
-  setSearchQuery, 
   clearError, 
   clearSelectedCompany, 
   resetCompanies 

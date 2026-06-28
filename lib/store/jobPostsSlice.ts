@@ -18,7 +18,6 @@ interface JobPostsState {
   isUpdating: boolean;
   isDeleting: boolean;
   error: string | null;
-  searchQuery: string;
   filterStatus: 'all' | 'active' | 'closed';
   lastFetchedAt: number | null;   // timestamp of last sync
 }
@@ -31,7 +30,6 @@ const initialState: JobPostsState = {
   isUpdating: false,
   isDeleting: false,
   error: null,
-  searchQuery: '',
   filterStatus: 'all',
   lastFetchedAt: null,
 };
@@ -239,9 +237,6 @@ const jobPostsSlice = createSlice({
     setSelectedJobPost: (state, action: PayloadAction<Job | null>) => {
       state.selectedJobPost = action.payload;
     },
-    setSearchQuery: (state, action: PayloadAction<string>) => {
-      state.searchQuery = action.payload;
-    },
     setFilterStatus: (state, action: PayloadAction<'all' | 'active' | 'closed'>) => {
       state.filterStatus = action.payload;
     },
@@ -261,13 +256,11 @@ const jobPostsSlice = createSlice({
         if (action.payload) {
           state.allJobPosts = action.payload.jobPosts;
           state.lastFetchedAt = action.payload.timestamp;
-          state.isLoading = false;
-        } else {
-          state.isLoading = true;
         }
+        state.isLoading = false;
       })
       .addCase(loadJobPostsFromCache.rejected, (state) => {
-        state.isLoading = true;
+        state.isLoading = false;
       })
 
       // Fetch all from API
@@ -359,6 +352,6 @@ const jobPostsSlice = createSlice({
   },
 });
 
-export const { setSelectedJobPost, setSearchQuery, setFilterStatus, clearError, resetJobPosts } = jobPostsSlice.actions;
+export const { setSelectedJobPost, setFilterStatus, clearError, resetJobPosts } = jobPostsSlice.actions;
 
 export default jobPostsSlice.reducer;

@@ -33,7 +33,6 @@ import {
   toggleJobSeekerStatus,
   updateJobSeeker,
   deleteJobSeeker,
-  setSearchQuery,
   clearError,
   syncJobSeekers,
 } from "@/lib/store/jobSeekersSlice"
@@ -52,7 +51,7 @@ export default function JobSeekersPage() {
   const canWrite = useCanWrite()
   
   // Redux state
-  const { allJobSeekers, isLoading, isUpdating, isDeleting, error, searchQuery, lastFetchedAt } = useAppSelector(
+  const { allJobSeekers, isLoading, isUpdating, isDeleting, error, lastFetchedAt } = useAppSelector(
     (state) => state.jobSeekers
   )
   
@@ -62,6 +61,7 @@ export default function JobSeekersPage() {
   const [formData, setFormData] = useState<Partial<JobSeeker>>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Load from IndexedDB cache on mount, fetch from API if no cache
   useEffect(() => {
@@ -70,7 +70,6 @@ export default function JobSeekersPage() {
 
       const cacheResult = await dispatch(loadJobSeekersFromCache()).unwrap()
       if (!cacheResult) {
-        // No cache — fetch from API
         dispatch(fetchAllJobSeekers())
       }
     }
@@ -91,7 +90,7 @@ export default function JobSeekersPage() {
 
   // Filter job seekers based on search query (client-side)
   const filteredJobSeekers = useMemo(() => {
-    const onboardedSeekers = allJobSeekers.filter(seeker => seeker.isOnboarded)
+    const onboardedSeekers = allJobSeekers.filter(seeker => seeker && seeker.id && seeker.isOnboarded !== false)
     if (!searchQuery.trim()) return onboardedSeekers
     
     const query = searchQuery.toLowerCase()
@@ -218,10 +217,8 @@ export default function JobSeekersPage() {
   }
 
   const handleSearchChange = (value: string) => {
-    dispatch(setSearchQuery(value))
-    if (currentPage !== 1) {
-      setCurrentPage(1)
-    }
+    setSearchQuery(value)
+    setCurrentPage(1)
   }
 
   const handlePageChange = (page: number) => {

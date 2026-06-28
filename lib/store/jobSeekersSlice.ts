@@ -19,7 +19,6 @@ interface JobSeekersState {
   isUpdating: boolean;
   isDeleting: boolean;
   error: string | null;
-  searchQuery: string;
   lastFetchedAt: number | null;   // timestamp of last sync
 }
 
@@ -30,7 +29,6 @@ const initialState: JobSeekersState = {
   isUpdating: false,
   isDeleting: false,
   error: null,
-  searchQuery: '',
   lastFetchedAt: null,
 };
 
@@ -214,8 +212,8 @@ const jobSeekersSlice = createSlice({
   name: 'jobSeekers',
   initialState,
   reducers: {
-    setSearchQuery: (state, action: PayloadAction<string>) => {
-      state.searchQuery = action.payload;
+    setSelectedJobSeeker: (state, action: PayloadAction<JobSeeker | null>) => {
+      state.selectedJobSeeker = action.payload;
     },
     clearError: (state) => {
       state.error = null;
@@ -236,14 +234,11 @@ const jobSeekersSlice = createSlice({
         if (action.payload) {
           state.allJobSeekers = action.payload.jobSeekers;
           state.lastFetchedAt = action.payload.timestamp;
-          state.isLoading = false;
-        } else {
-          // No cache — stay in loading state, caller will dispatch fetchAll
-          state.isLoading = true;
         }
+        state.isLoading = false;
       })
       .addCase(loadJobSeekersFromCache.rejected, (state) => {
-        state.isLoading = true; // stay loading, caller will fetch from API
+        state.isLoading = false;
       })
 
       // Fetch all from API
@@ -359,7 +354,6 @@ const jobSeekersSlice = createSlice({
 });
 
 export const {
-  setSearchQuery,
   clearError,
   clearSelectedJobSeeker,
   resetJobSeekers,

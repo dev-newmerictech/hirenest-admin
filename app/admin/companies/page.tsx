@@ -34,7 +34,6 @@ import {
   toggleCompanyStatus,
   updateCompany,
   deleteCompany,
-  setSearchQuery,
   clearError,
   syncCompanies,
 } from "@/lib/store/companiesSlice"
@@ -53,7 +52,7 @@ export default function CompaniesPage() {
   const canWrite = useCanWrite()
   
   // Redux state
-  const { allCompanies, isLoading, isUpdating, isDeleting, error, searchQuery, lastFetchedAt } = useAppSelector(
+  const { allCompanies, isLoading, isUpdating, isDeleting, error, lastFetchedAt } = useAppSelector(
     (state) => state.companies
   )
   
@@ -63,6 +62,7 @@ export default function CompaniesPage() {
   const [formData, setFormData] = useState<Partial<Company>>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
 
   // Load from IndexedDB cache on mount, fetch from API if no cache
   useEffect(() => {
@@ -91,7 +91,7 @@ export default function CompaniesPage() {
 
   // Filter companies based on search query (client-side)
   const filteredCompanies = useMemo(() => {
-    const onboardedCompanies = allCompanies.filter(company => company.isOnboarded)
+    const onboardedCompanies = allCompanies.filter(company => company && company.id && company.isOnboarded !== false)
     if (!searchQuery.trim()) return onboardedCompanies
     
     const query = searchQuery.toLowerCase()
@@ -233,10 +233,8 @@ export default function CompaniesPage() {
   }
 
   const handleSearchChange = (value: string) => {
-    dispatch(setSearchQuery(value))
-    if (currentPage !== 1) {
-      setCurrentPage(1)
-    }
+    setSearchQuery(value)
+    setCurrentPage(1)
   }
 
   const handlePageChange = (page: number) => {
