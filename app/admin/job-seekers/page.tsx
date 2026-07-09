@@ -25,6 +25,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { DateRangeFilter } from "@/components/admin/date-range-filter"
+import { DateRange } from "react-day-picker"
 import { useToast } from "@/hooks/use-toast"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import {
@@ -41,6 +43,7 @@ import { exportToExcel } from "@/lib/utils/excelExport"
 import type { JobSeeker } from "@/lib/types"
 import { format, formatDistanceToNow } from "date-fns"
 import { RefreshCw, Download, CheckCircle, XCircle } from "lucide-react"
+import { isWithinInterval, startOfDay, endOfDay } from "date-fns"
 
 const ITEMS_PER_PAGE = 10
 
@@ -62,19 +65,20 @@ export default function JobSeekersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
 
-  // Load from IndexedDB cache on mount, fetch from API if no cache
+  // Load from IndexedDB cache for instant display, then always fetch fresh data from API
   useEffect(() => {
     const initData = async () => {
-      if (allJobSeekers.length > 0 && lastFetchedAt) return // Already have data in Redux
-
-      const cacheResult = await dispatch(loadJobSeekersFromCache()).unwrap()
-      if (!cacheResult) {
-        dispatch(fetchAllJobSeekers())
+      // Load cache first for instant display
+      if (allJobSeekers.length === 0) {
+        await dispatch(loadJobSeekersFromCache()).unwrap()
       }
+      // Always fetch fresh data from API to avoid stale cache
+      dispatch(fetchAllJobSeekers())
     }
     initData()
-  }, [dispatch, allJobSeekers.length, lastFetchedAt])
+  }, [dispatch])
 
   // Show error toast
   useEffect(() => {
@@ -91,17 +95,33 @@ export default function JobSeekersPage() {
   // Filter job seekers based on search query (client-side)
   const filteredJobSeekers = useMemo(() => {
     const onboardedSeekers = allJobSeekers.filter(seeker => seeker && seeker.id && seeker.isOnboarded !== false)
-    if (!searchQuery.trim()) return onboardedSeekers
     
-    const query = searchQuery.toLowerCase()
-    return onboardedSeekers.filter(
-      (seeker) =>
-        seeker.name.toLowerCase().includes(query) ||
-        seeker.email.toLowerCase().includes(query) ||
-        (seeker.city && seeker.city.toLowerCase().includes(query)) ||
-        (seeker.state && seeker.state.toLowerCase().includes(query))
-    )
-  }, [searchQuery, allJobSeekers])
+    let result = onboardedSeekers
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(
+        (seeker) =>
+          seeker.name.toLowerCase().includes(query) ||
+          seeker.email.toLowerCase().includes(query) ||
+          (seeker.city && seeker.city.toLowerCase().includes(query)) ||
+          (seeker.state && seeker.state.toLowerCase().includes(query))
+      )
+    }
+
+    if (dateRange?.from) {
+      const from = startOfDay(dateRange.from)
+      const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from)
+      
+      result = result.filter((seeker) => {
+        if (!seeker.registrationDate) return false
+        const seekerDate = new Date(seeker.registrationDate)
+        return isWithinInterval(seekerDate, { start: from, end: to })
+      })
+    }
+
+    return result
+  }, [searchQuery, dateRange, allJobSeekers])
 
   // Client-side pagination
   const totalItems = filteredJobSeekers.length
@@ -322,15 +342,9 @@ export default function JobSeekersPage() {
     <AuthGuard>
       <AdminLayout>
         <div className="space-y-6">
-
-          <div className="mt-4 sm:mt-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <PageHeader title="Job Seekers" description="Manage job seeker accounts" />
-            <div className="flex items-center gap-2">
-              <SearchBar 
-                placeholder="Search by name, email, location..." 
-                value={searchQuery} 
-                onChange={handleSearchChange} 
-              />
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="icon"
@@ -360,6 +374,15 @@ export default function JobSeekersPage() {
               {' · '}{allJobSeekers.length} records loaded
             </div>
           )}
+
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <SearchBar 
+              onChange={setSearchQuery} 
+              placeholder="Search by name, email, or location..." 
+              value={searchQuery}
+            />
+            <DateRangeFilter date={dateRange} setDate={setDateRange} />
+          </div>
 
           {isLoading ? (
             <div className="h-64 rounded-lg bg-muted animate-pulse" />

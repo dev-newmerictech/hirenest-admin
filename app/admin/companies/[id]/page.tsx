@@ -18,6 +18,8 @@ import {
   fetchCompanyProfile,
 } from "@/lib/store/companiesSlice"
 import type { Company } from "@/lib/types"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CreditUsageTab } from "@/components/admin/credit-usage-tab"
 
 function getIdParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -104,61 +106,74 @@ export default function CompanyProfilePage() {
           ) : null}
 
           {companyId && !isLoading && !error && selectedCompany ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>{selectedCompany.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{selectedCompany.email}</p>
-                  </div>
+            <Tabs defaultValue="profile" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="profile">Profile Details</TabsTrigger>
+                <TabsTrigger value="credits">Credits & Usage</TabsTrigger>
+              </TabsList>
+              <TabsContent value="profile" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{selectedCompany.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p className="font-medium">{selectedCompany.email || "N/A"}</p>
+                      </div>
 
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Industry</p>
-                    <p className="font-medium">{selectedCompany.industry}</p>
-                  </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Industry</p>
+                        <p className="font-medium">{selectedCompany.industry || "N/A"}</p>
+                      </div>
 
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Registration Date</p>
-                    <p className="font-medium">
-                      {format(new Date(selectedCompany.registrationDate), "MMMM dd, yyyy")}
-                    </p>
-                  </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Registration Date</p>
+                        <p className="font-medium">
+                          {selectedCompany.registrationDate 
+                            ? format(new Date(selectedCompany.registrationDate), "MMMM dd, yyyy")
+                            : "N/A"}
+                        </p>
+                      </div>
 
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <StatusBadge status={selectedCompany.isActive} />
-                  </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <StatusBadge status={selectedCompany.isActive} />
+                      </div>
 
-                  <div className="space-y-1 sm:col-span-2">
-                    <p className="text-sm text-muted-foreground">Verification</p>
-                    <div className="mt-1">
-                      <Badge
-                        variant={
-                          selectedVerificationStatus === "approved"
-                            ? "default"
-                            : selectedVerificationStatus === "rejected"
-                              ? "destructive"
-                              : "secondary"
-                        }
-                        className={
-                          selectedVerificationStatus === "approved"
-                            ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
-                            : selectedVerificationStatus === "rejected"
-                              ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                              : ""
-                        }
-                      >
-                        {selectedVerificationStatus.charAt(0).toUpperCase() +
-                          selectedVerificationStatus.slice(1)}
-                      </Badge>
+                      <div className="space-y-1 sm:col-span-2">
+                        <p className="text-sm text-muted-foreground">Verification</p>
+                        <div className="mt-1">
+                          <Badge
+                            variant={
+                              selectedVerificationStatus === "approved"
+                                ? "default"
+                                : selectedVerificationStatus === "rejected"
+                                  ? "destructive"
+                                  : "secondary"
+                            }
+                            className={
+                              selectedVerificationStatus === "approved"
+                                ? "bg-green-500/10 text-green-500 hover:bg-green-500/20"
+                                : selectedVerificationStatus === "rejected"
+                                  ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                                  : ""
+                            }
+                          >
+                            {selectedVerificationStatus.charAt(0).toUpperCase() +
+                              selectedVerificationStatus.slice(1)}
+                          </Badge>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="credits">
+                <CreditUsageTab profileId={companyId} profileType="provider" />
+              </TabsContent>
+            </Tabs>
           ) : null}
         </div>
       </AdminLayout>

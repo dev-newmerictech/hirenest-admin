@@ -12,6 +12,7 @@ export interface NotOnboardedUser {
   onboardingStage: number;
   source: string;
   sourceData?: any;
+  draftProfile?: any;
 }
 
 export interface NotOnboardedResponse {

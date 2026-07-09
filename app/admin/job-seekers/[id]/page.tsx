@@ -16,6 +16,8 @@ import {
   clearSelectedJobSeeker,
   fetchJobSeekerProfile,
 } from "@/lib/store/jobSeekersSlice"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { CreditUsageTab } from "@/components/admin/credit-usage-tab"
 
 function getIdParam(value: string | string[] | undefined) {
   if (Array.isArray(value)) {
@@ -86,36 +88,47 @@ export default function JobSeekerProfilePage() {
           ) : null}
 
           {jobSeekerId && !isLoading && !error && selectedJobSeeker ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>{selectedJobSeeker.name}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Email</p>
-                    <p className="font-medium">{selectedJobSeeker.email}</p>
-                  </div>
+            <Tabs defaultValue="profile" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="profile">Profile Details</TabsTrigger>
+                <TabsTrigger value="credits">Credits & Usage</TabsTrigger>
+              </TabsList>
+              <TabsContent value="profile" className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>{selectedJobSeeker.name}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Email</p>
+                        <p className="font-medium">{selectedJobSeeker.email}</p>
+                      </div>
 
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Phone</p>
-                    <p className="font-medium">{selectedJobSeeker.phone}</p>
-                  </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Phone</p>
+                        <p className="font-medium">{selectedJobSeeker.phone || "N/A"}</p>
+                      </div>
 
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Registration Date</p>
-                    <p className="font-medium">
-                      {format(new Date(selectedJobSeeker.registrationDate), "MMMM dd, yyyy")}
-                    </p>
-                  </div>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Registration Date</p>
+                        <p className="font-medium">
+                          {selectedJobSeeker.registrationDate ? format(new Date(selectedJobSeeker.registrationDate), "MMMM dd, yyyy") : "N/A"}
+                        </p>
+                      </div>
 
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Status</p>
-                    <StatusBadge status={selectedJobSeeker.isActive} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                      <div className="space-y-1">
+                        <p className="text-sm text-muted-foreground">Status</p>
+                        <StatusBadge status={selectedJobSeeker.isActive} />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+              <TabsContent value="credits">
+                <CreditUsageTab profileId={jobSeekerId} profileType="seeker" />
+              </TabsContent>
+            </Tabs>
           ) : null}
         </div>
       </AdminLayout>

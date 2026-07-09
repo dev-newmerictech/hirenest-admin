@@ -24,6 +24,15 @@ export interface SubscriptionDetailResponse {
   };
 }
 
+export interface ProfileCreditHistoryResponse {
+  success: boolean;
+  data: {
+    subscription: any;
+    usageStats: any;
+    transactions: any[];
+  };
+}
+
 export const subscriptionsApi = {
   getPlans: async (): Promise<{ success: boolean; data: SubscriptionPlan[] }> =>
     api.get('/admin/subscription/plans'),
@@ -51,6 +60,9 @@ export const subscriptionsApi = {
 
   assignPlan: async (profileId: string, payload: AssignPlanRequest) =>
     api.post(`/admin/subscription/subscriptions/${profileId}/assign-plan`, payload),
+
+  getProfileCreditHistory: async (profileId: string): Promise<ProfileCreditHistoryResponse> =>
+    api.get(`/admin/subscription/profiles/${profileId}/credit-history`),
 
   getAnalytics: async () => api.get('/admin/subscription/analytics'),
 };

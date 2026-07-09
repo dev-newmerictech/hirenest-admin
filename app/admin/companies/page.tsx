@@ -25,6 +25,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
+import { DateRangeFilter } from "@/components/admin/date-range-filter"
+import { DateRange } from "react-day-picker"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
@@ -42,6 +44,7 @@ import { exportToExcel } from "@/lib/utils/excelExport"
 import type { Company } from "@/lib/types"
 import { format, formatDistanceToNow } from "date-fns"
 import { MoreVertical, Eye, Ban, CheckCircle, Trash2, ShieldCheck, ShieldX, User, RefreshCw, Download, XCircle } from "lucide-react"
+import { isWithinInterval, startOfDay, endOfDay } from "date-fns"
 
 const ITEMS_PER_PAGE = 10
 
@@ -63,19 +66,20 @@ export default function CompaniesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
 
-  // Load from IndexedDB cache on mount, fetch from API if no cache
+  // Load from IndexedDB cache for instant display, then always fetch fresh data from API
   useEffect(() => {
     const initData = async () => {
-      if (allCompanies.length > 0 && lastFetchedAt) return
-
-      const cacheResult = await dispatch(loadCompaniesFromCache()).unwrap()
-      if (!cacheResult) {
-        dispatch(fetchAllCompanies())
+      // Load cache first for instant display
+      if (allCompanies.length === 0) {
+        await dispatch(loadCompaniesFromCache()).unwrap()
       }
+      // Always fetch fresh data from API to avoid stale cache
+      dispatch(fetchAllCompanies())
     }
     initData()
-  }, [dispatch, allCompanies.length, lastFetchedAt])
+  }, [dispatch])
 
   // Show error toast
   useEffect(() => {
@@ -92,16 +96,32 @@ export default function CompaniesPage() {
   // Filter companies based on search query (client-side)
   const filteredCompanies = useMemo(() => {
     const onboardedCompanies = allCompanies.filter(company => company && company.id && company.isOnboarded !== false)
-    if (!searchQuery.trim()) return onboardedCompanies
     
-    const query = searchQuery.toLowerCase()
-    return onboardedCompanies.filter(
-      (company) =>
-        company.name.toLowerCase().includes(query) ||
-        company.email.toLowerCase().includes(query) ||
-        company.industry.toLowerCase().includes(query)
-    )
-  }, [searchQuery, allCompanies])
+    let result = onboardedCompanies
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(
+        (company) =>
+          company.name.toLowerCase().includes(query) ||
+          company.email.toLowerCase().includes(query) ||
+          company.industry.toLowerCase().includes(query)
+      )
+    }
+
+    if (dateRange?.from) {
+      const from = startOfDay(dateRange.from)
+      const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from)
+      
+      result = result.filter((company) => {
+        if (!company.registrationDate) return false
+        const compDate = new Date(company.registrationDate)
+        return isWithinInterval(compDate, { start: from, end: to })
+      })
+    }
+
+    return result
+  }, [searchQuery, dateRange, allCompanies])
 
   // Client-side pagination
   const totalItems = filteredCompanies.length
@@ -305,7 +325,16 @@ export default function CompaniesPage() {
       ),
     },
     { key: "email", label: "Email" },
-    { key: "industry", label: "Industry" },
+    { 
+      key: "industry", 
+      label: "Industry",
+      render: (item) => {
+        if (!item.industry || item.industry === 'N/A') return 'N/A';
+        return item.industry.length > 15 
+          ? `${item.industry.substring(0, 15)}...`
+          : item.industry;
+      }
+    },
     {
       key: "registrationDate",
       label: "Registration Date",
@@ -410,10 +439,9 @@ export default function CompaniesPage() {
       <AdminLayout>
         <div className="space-y-6">
 
-          <div className="mt-4 sm:mt-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <PageHeader title="Companies" description="Manage company accounts and verifications" />
-            <div className="flex items-center gap-2">
-              <SearchBar placeholder="Search by company name..." value={searchQuery} onChange={handleSearchChange} />
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="icon"
@@ -443,6 +471,11 @@ export default function CompaniesPage() {
               {' · '}{allCompanies.length} records loaded
             </div>
           )}
+
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <SearchBar placeholder="Search by company name..." value={searchQuery} onChange={setSearchQuery} />
+            <DateRangeFilter date={dateRange} setDate={setDateRange} />
+          </div>
 
           {isLoading ? (
             <div className="h-64 rounded-lg bg-muted animate-pulse" />

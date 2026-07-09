@@ -18,7 +18,9 @@ export interface CompaniesListResponse {
 
 export interface CompanyDetailResponse {
   status: string;
-  data: CompanyAPIResponse;
+  data: {
+    jobProvider: CompanyAPIResponse;
+  };
 }
 
 export interface CompanySyncResponse {
@@ -41,7 +43,7 @@ export function transformCompany(apiCompany: CompanyAPIResponse): Company {
     id: apiCompany._id,
     name: apiCompany.name,
     email: apiCompany.email,
-    industry: apiCompany.industry || 'N/A',
+    industry: apiCompany.industry || apiCompany.preferences?.industries?.[0] || 'N/A',
     registrationDate: apiCompany.createdAt,
     isActive: apiCompany.isActive,
     isVerified: apiCompany.isVerified || false,

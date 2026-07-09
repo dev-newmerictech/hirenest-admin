@@ -16,6 +16,7 @@ import Image from "next/image"
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { useAppSelector } from "@/lib/store/hooks"
 import { roleRouteAccess, type AdminRole } from "@/lib/rbacConfig"
+import { ErrorBoundary } from "./error-boundary"
 
 interface AdminLayoutProps {
   children: React.ReactNode
@@ -206,7 +207,11 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 tablet:px-6 py-16 tablet:py-3">{children}</div>
+        <div className="container mx-auto px-4 tablet:px-6 py-16 tablet:py-3">
+          <ErrorBoundary>
+            {children}
+          </ErrorBoundary>
+        </div>
       </main>
     </div>
   )

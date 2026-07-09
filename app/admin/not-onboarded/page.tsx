@@ -22,6 +22,9 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { DateRangeFilter } from "@/components/admin/date-range-filter"
+import { DateRange } from "react-day-picker"
 import { useToast } from "@/hooks/use-toast"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import {
@@ -34,7 +37,8 @@ import {
 import { useCanWrite } from "@/lib/rbacConfig"
 import { exportToExcel } from "@/lib/utils/excelExport"
 import { format, formatDistanceToNow } from "date-fns"
-import { MoreVertical, Eye, Trash2, User, RefreshCw, Download } from "lucide-react"
+import { MoreVertical, Eye, Trash2, User, RefreshCw, Download, Info } from "lucide-react"
+import { isWithinInterval, startOfDay, endOfDay } from "date-fns"
 
 const ITEMS_PER_PAGE = 10
 
@@ -55,19 +59,20 @@ export default function NotOnboardedPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
 
-  // Load from IndexedDB cache on mount, fetch from API if no cache
+  // Load from IndexedDB cache on mount for instant display, then always fetch fresh data from API
   useEffect(() => {
     const initData = async () => {
-      if (allNotOnboarded.length > 0 && lastFetchedAt) return
-
-      const cacheResult = await dispatch(loadNotOnboardedFromCache()).unwrap()
-      if (!cacheResult) {
-        dispatch(fetchAllNotOnboarded())
+      // Load cache first for instant display
+      if (allNotOnboarded.length === 0) {
+        await dispatch(loadNotOnboardedFromCache()).unwrap()
       }
+      // Always fetch fresh data from API to avoid stale cache
+      dispatch(fetchAllNotOnboarded())
     }
     initData()
-  }, [dispatch, allNotOnboarded.length, lastFetchedAt])
+  }, [dispatch])
 
   // Show error toast
   useEffect(() => {
@@ -83,17 +88,32 @@ export default function NotOnboardedPage() {
 
   // Filter based on search query
   const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) return allNotOnboarded
-    
-    const query = searchQuery.toLowerCase()
-    return allNotOnboarded.filter(
-      (user) =>
-        user && user.id && (
-        user.name.toLowerCase().includes(query) ||
-        user.email.toLowerCase().includes(query)
-        )
-    )
-  }, [searchQuery, allNotOnboarded])
+    let result = allNotOnboarded
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      result = result.filter(
+        (user) =>
+          user && user.id && (
+          user.name.toLowerCase().includes(query) ||
+          user.email.toLowerCase().includes(query)
+          )
+      )
+    }
+
+    if (dateRange?.from) {
+      const from = startOfDay(dateRange.from)
+      const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from)
+      
+      result = result.filter((user) => {
+        if (!user.registrationDate) return false
+        const userDate = new Date(user.registrationDate)
+        return isWithinInterval(userDate, { start: from, end: to })
+      })
+    }
+
+    return result
+  }, [searchQuery, dateRange, allNotOnboarded])
 
   // Pagination
   const totalItems = filteredUsers.length
@@ -200,7 +220,42 @@ export default function NotOnboardedPage() {
     },
     {
       key: "onboardingStage",
-      label: "Onboarding Stage",
+      label: (
+        <div className="flex items-center gap-2">
+          Onboarding Stage
+          <TooltipProvider delayDuration={100}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent sideOffset={8} className="max-w-[400px] p-4 text-sm bg-white text-slate-900 border border-slate-200 shadow-md">
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-slate-900 border-b pb-1">Onboarding Progress</h4>
+                  <ul className="space-y-2 text-slate-600">
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium text-slate-900 whitespace-nowrap">Stage 0:</span> 
+                      <span>Signed up (Email/Social), but no details filled yet.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium text-slate-900 whitespace-nowrap">Stage 1:</span> 
+                      <span>Basic Details screen reached and completed.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium text-slate-900 whitespace-nowrap">Stage 2:</span> 
+                      <span>Preferences & Role screen reached and completed.</span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="font-medium text-slate-900 whitespace-nowrap">Stage 3:</span> 
+                      <span>Experience / Company Details screen reached and completed.</span>
+                    </li>
+                  </ul>
+                  <p className="text-xs text-slate-400 mt-2 italic">* Stages represent the last screen the user successfully completed before dropping off.</p>
+                </div>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      ),
       render: (item) => item.onboardingStage ? `Stage ${item.onboardingStage}` : 'N/A'
     },
     {
@@ -316,35 +371,49 @@ export default function NotOnboardedPage() {
     <AuthGuard>
       <AdminLayout>
         <div className="space-y-6 max-w-full overflow-hidden">
-          <PageHeader
-            title="Not Onboarded Users"
-            description="Manage users who have signed up but have not yet created a profile."
-          />
-
-          <div className="flex flex-col tablet:flex-row tablet:items-center justify-between gap-4">
-            <SearchBar 
-              onChange={handleSearchChange} 
-              placeholder="Search by name or email..." 
-              value={searchQuery}
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <PageHeader
+              title="Not Onboarded Users"
+              description="Manage users who have signed up but have not yet created a profile."
             />
-            
-            <div className="flex items-center gap-2 self-end tablet:self-auto">
-              <Button 
-                variant="outline" 
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={handleRefresh}
-                disabled={isSyncing || isLoading}
-                className="shadow-sm"
+                disabled={isLoading || isSyncing}
+                title="Refresh data from server"
               >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Syncing...' : 'Refresh'}
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
               </Button>
-              <Button 
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={handleExport}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+                disabled={allNotOnboarded.length === 0}
+                title="Export to Excel"
               >
-                <Download className="mr-2 h-4 w-4" /> Export CSV
+                <Download className="h-4 w-4" />
               </Button>
             </div>
+          </div>
+
+          {/* Sync indicator */}
+          {lastFetchedAt && (
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Last synced {formatDistanceToNow(new Date(lastFetchedAt), { addSuffix: true })}
+              {' · '}{allNotOnboarded.length} records loaded
+            </div>
+          )}
+
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <SearchBar 
+              value={searchQuery} 
+              onChange={setSearchQuery} 
+              placeholder="Search not onboarded users..." 
+            />
+            <DateRangeFilter date={dateRange} setDate={setDateRange} />
           </div>
 
           {isLoading ? (
@@ -454,6 +523,220 @@ export default function NotOnboardedPage() {
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Stage-wise Onboarding Data Display */}
+                  <div className="space-y-4 pt-4 border-t border-border">
+                    <h4 className="text-sm font-semibold text-foreground mb-3">Onboarding Data Breakdown</h4>
+                    
+                    {selectedUser.role === 'jobseeker' ? (
+                      <div className="space-y-6">
+                        {/* STAGE 1 */}
+                        <div className="relative pl-6 border-l-2 border-emerald-500">
+                          <div className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-emerald-500" />
+                          <h5 className="text-xs font-bold uppercase text-emerald-600 tracking-wider">Stage 1: Role Selection</h5>
+                          <p className="text-sm text-foreground mt-1">Selected Role: <span className="font-semibold text-emerald-700">Job Seeker</span></p>
+                        </div>
+
+                        {/* STAGE 2 */}
+                        {(() => {
+                          const hasResume = selectedUser.draftProfile?.documents?.some((doc: any) => doc?.name === 'resume' || doc?.url);
+                          const isPastStage2 = selectedUser.onboardingStage >= 2 || hasResume;
+                          return (
+                            <div className={`relative pl-6 border-l-2 ${isPastStage2 ? 'border-emerald-500' : 'border-slate-200'}`}>
+                              <div className={`absolute -left-[7px] top-1.5 h-3 w-3 rounded-full ${isPastStage2 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                              <h5 className={`text-xs font-bold uppercase tracking-wider ${isPastStage2 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                Stage 2: Resume Upload
+                              </h5>
+                              {hasResume ? (
+                                <p className="text-sm text-foreground mt-1">
+                                  Resume Uploaded: <span className="font-medium text-emerald-700">Yes</span>
+                                </p>
+                              ) : isPastStage2 ? (
+                                <p className="text-sm text-slate-500 mt-1">Skipped (Chose manual entry)</p>
+                              ) : (
+                                <p className="text-sm text-slate-400 mt-1 italic">Pending</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* STAGE 3 */}
+                        {(() => {
+                          const isPastStage3 = selectedUser.onboardingStage >= 3 || selectedUser.draftProfile;
+                          const profile = selectedUser.draftProfile;
+                          return (
+                            <div className={`relative pl-6 border-l-2 ${isPastStage3 ? 'border-emerald-500' : 'border-slate-200'}`}>
+                              <div className={`absolute -left-[7px] top-1.5 h-3 w-3 rounded-full ${isPastStage3 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                              <h5 className={`text-xs font-bold uppercase tracking-wider ${isPastStage3 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                Stage 3: Contact & Location
+                              </h5>
+                              {isPastStage3 && profile ? (
+                                <div className="mt-2 space-y-2 text-sm">
+                                  {selectedUser.name && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Name</span>
+                                      <span className="text-foreground font-medium">{selectedUser.name}</span>
+                                    </div>
+                                  )}
+                                  {profile.mobile && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Phone Number</span>
+                                      <span className="text-foreground font-medium">
+                                        {profile.mobile.countryCode && `+${profile.mobile.countryCode} `}
+                                        {profile.mobile.mobileNumber}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {profile.address && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Location</span>
+                                      <span className="text-foreground font-medium">
+                                        {[
+                                          profile.address.city,
+                                          profile.address.state,
+                                          profile.address.country
+                                        ].filter(Boolean).join(', ') || 'N/A'}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-slate-400 mt-1 italic">Pending</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* STAGE 4 */}
+                        {(() => {
+                          const isPastStage4 = selectedUser.onboardingStage >= 4 || selectedUser.draftProfile?.experiences?.length > 0 || selectedUser.draftProfile?.education?.length > 0;
+                          const profile = selectedUser.draftProfile;
+                          return (
+                            <div className={`relative pl-6 border-l-2 ${isPastStage4 ? 'border-emerald-500' : 'border-slate-200'}`}>
+                              <div className={`absolute -left-[7px] top-1.5 h-3 w-3 rounded-full ${isPastStage4 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                              <h5 className={`text-xs font-bold uppercase tracking-wider ${isPastStage4 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                Stage 4: Background / Experience
+                              </h5>
+                              {isPastStage4 && profile ? (
+                                <div className="mt-2 space-y-2 text-sm">
+                                  {profile.experiences?.length > 0 ? (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Work Experiences</span>
+                                      <span className="text-foreground font-medium">{profile.experiences.length} record(s)</span>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-slate-400">No work experiences filled</p>
+                                  )}
+                                  {profile.education?.length > 0 ? (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Education</span>
+                                      <span className="text-foreground font-medium">{profile.education.length} record(s)</span>
+                                    </div>
+                                  ) : (
+                                    <p className="text-xs text-slate-400">No education records filled</p>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-slate-400 mt-1 italic">Pending</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        {/* STAGE 5 */}
+                        {(() => {
+                          const isPastStage5 = selectedUser.onboardingStage >= 5 || selectedUser.draftProfile?.preferences?.industries?.length > 0;
+                          const profile = selectedUser.draftProfile;
+                          return (
+                            <div className={`relative pl-6 ${isPastStage5 ? 'border-l-2 border-emerald-500' : 'border-l-2 border-slate-200'}`}>
+                              <div className={`absolute -left-[7px] top-1.5 h-3 w-3 rounded-full ${isPastStage5 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                              <h5 className={`text-xs font-bold uppercase tracking-wider ${isPastStage5 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                Stage 5: Job Preferences
+                              </h5>
+                              {isPastStage5 && profile?.preferences ? (
+                                <div className="mt-2 space-y-2 text-sm">
+                                  {profile.preferences.industries?.length > 0 && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Preferred Industries</span>
+                                      <span className="text-foreground font-medium">{profile.preferences.industries.join(', ')}</span>
+                                    </div>
+                                  )}
+                                  {profile.preferences.categories?.length > 0 && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Preferred Categories</span>
+                                      <span className="text-foreground font-medium">{profile.preferences.categories.join(', ')}</span>
+                                    </div>
+                                  )}
+                                  {profile.preferences.experienceLevel && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Experience Level</span>
+                                      <span className="text-foreground font-medium capitalize">{profile.preferences.experienceLevel}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-slate-400 mt-1 italic">Pending</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* STAGE 1 */}
+                        <div className="relative pl-6 border-l-2 border-emerald-500">
+                          <div className="absolute -left-[7px] top-1.5 h-3 w-3 rounded-full bg-emerald-500" />
+                          <h5 className="text-xs font-bold uppercase text-emerald-600 tracking-wider">Stage 1: Role Selection</h5>
+                          <p className="text-sm text-foreground mt-1">Selected Role: <span className="font-semibold text-emerald-700">Job Provider (Company)</span></p>
+                        </div>
+
+                        {/* STAGE 2 */}
+                        {(() => {
+                          const isPastStage2 = selectedUser.onboardingStage >= 2 || selectedUser.draftProfile;
+                          const profile = selectedUser.draftProfile;
+                          return (
+                            <div className={`relative pl-6 ${isPastStage2 ? 'border-l-2 border-emerald-500' : 'border-l-2 border-slate-200'}`}>
+                              <div className={`absolute -left-[7px] top-1.5 h-3 w-3 rounded-full ${isPastStage2 ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                              <h5 className={`text-xs font-bold uppercase tracking-wider ${isPastStage2 ? 'text-emerald-600' : 'text-slate-400'}`}>
+                                Stage 2: Business Profile
+                              </h5>
+                              {isPastStage2 && profile ? (
+                                <div className="mt-2 space-y-2 text-sm">
+                                  {profile.name && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Company Name</span>
+                                      <span className="text-foreground font-medium">{profile.name}</span>
+                                    </div>
+                                  )}
+                                  {profile.einNumber && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">EIN Number</span>
+                                      <span className="text-foreground font-medium">{profile.einNumber}</span>
+                                    </div>
+                                  )}
+                                  {profile.address && (
+                                    <div>
+                                      <span className="text-xs text-muted-foreground block uppercase">Company Address</span>
+                                      <span className="text-foreground font-medium">
+                                        {[
+                                          profile.address.addressLine1,
+                                          profile.address.city,
+                                          profile.address.state,
+                                          profile.address.country
+                                        ].filter(Boolean).join(', ')}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <p className="text-sm text-slate-400 mt-1 italic">Pending</p>
+                              )}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

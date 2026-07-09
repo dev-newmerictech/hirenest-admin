@@ -83,7 +83,7 @@ export const syncCompanies = createAsyncThunk<
   { rejectValue: string }
 >(
   'companies/sync',
-  async (lastFetchedAt, { rejectWithValue }) => {
+  async (lastFetchedAt, { rejectWithValue, dispatch }) => {
     try {
       const since = new Date(lastFetchedAt).toISOString();
       const response = await companiesApi.syncCompanies(since);
@@ -96,7 +96,17 @@ export const syncCompanies = createAsyncThunk<
         CACHE_KEYS.companiesTime
       );
       
-      let currentRecords = cached?.data || [];
+      if (!cached || !cached.data || cached.data.length === 0) {
+        // If IndexedDB was deleted or is empty, we must do a full fetch instead of a delta sync
+        const fullFetchAction = await dispatch(fetchAllCompanies() as any);
+        if (fetchAllCompanies.fulfilled.match(fullFetchAction)) {
+          return fullFetchAction.payload;
+        } else {
+          throw new Error('Fallback full fetch failed');
+        }
+      }
+      
+      let currentRecords = cached.data;
       
       currentRecords = currentRecords.filter(r => !deletedIds.includes(r.id));
       
@@ -273,7 +283,7 @@ const companiesSlice = createSlice({
       })
       .addCase(fetchCompanyProfile.fulfilled, (state, action: PayloadAction<CompanyDetailResponse>) => {
         state.isLoading = false;
-        state.selectedCompany = transformCompany(action.payload.data);
+        state.selectedCompany = transformCompany(action.payload.data.jobProvider || (action.payload.data as any));
         state.error = null;
       })
       .addCase(fetchCompanyProfile.rejected, (state, action) => {
@@ -288,7 +298,7 @@ const companiesSlice = createSlice({
       })
       .addCase(toggleCompanyStatus.fulfilled, (state, action: PayloadAction<CompanyDetailResponse>) => {
         state.isUpdating = false;
-        const transformedCompany = transformCompany(action.payload.data);
+        const transformedCompany = transformCompany(action.payload.data.jobProvider || (action.payload.data as any));
         const index = state.allCompanies.findIndex(c => c.id === transformedCompany.id);
         if (index !== -1) {
           state.allCompanies[index] = transformedCompany;
@@ -310,12 +320,14 @@ const companiesSlice = createSlice({
       })
       .addCase(updateCompany.fulfilled, (state, action: PayloadAction<CompanyDetailResponse>) => {
         state.isUpdating = false;
-        const transformedCompany = transformCompany(action.payload.data);
+        const transformedCompany = transformCompany(action.payload.data.jobProvider || (action.payload.data as any));
         const index = state.allCompanies.findIndex(c => c.id === transformedCompany.id);
         if (index !== -1) {
           state.allCompanies[index] = transformedCompany;
         }
-        state.selectedCompany = transformedCompany;
+        if (state.selectedCompany?.id === transformedCompany.id) {
+          state.selectedCompany = transformedCompany;
+        }
         state.error = null;
       })
       .addCase(updateCompany.rejected, (state, action) => {

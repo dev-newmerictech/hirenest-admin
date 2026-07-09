@@ -83,7 +83,7 @@ export const syncJobSeekers = createAsyncThunk<
   { rejectValue: string }
 >(
   'jobSeekers/sync',
-  async (lastFetchedAt, { rejectWithValue, getState }) => {
+  async (lastFetchedAt, { rejectWithValue, getState, dispatch }) => {
     try {
       // 1. Convert timestamp to ISO string for backend
       const since = new Date(lastFetchedAt).toISOString();
@@ -100,7 +100,17 @@ export const syncJobSeekers = createAsyncThunk<
         CACHE_KEYS.jobSeekersTime
       );
       
-      let currentRecords = cached?.data || [];
+      if (!cached || !cached.data || cached.data.length === 0) {
+        // If IndexedDB was deleted or is empty, we must do a full fetch instead of a delta sync
+        const fullFetchAction = await dispatch(fetchAllJobSeekers() as any);
+        if (fetchAllJobSeekers.fulfilled.match(fullFetchAction)) {
+          return fullFetchAction.payload;
+        } else {
+          throw new Error('Fallback full fetch failed');
+        }
+      }
+      
+      let currentRecords = cached.data;
       
       // 4. Remove deleted records
       currentRecords = currentRecords.filter(r => !deletedIds.includes(r.id));
@@ -290,9 +300,21 @@ const jobSeekersSlice = createSlice({
       })
 
       // Toggle status
-      .addCase(toggleJobSeekerStatus.pending, (state) => {
+      .addCase(toggleJobSeekerStatus.pending, (state, action) => {
         state.isUpdating = true;
         state.error = null;
+        
+        // Optimistic UI Update
+        const targetId = action.meta.arg.id;
+        const newStatus = action.meta.arg.isActive;
+        
+        const index = state.allJobSeekers.findIndex(js => js.id === targetId);
+        if (index !== -1) {
+          state.allJobSeekers[index].status = newStatus ? 'Active' : 'Inactive';
+        }
+        if (state.selectedJobSeeker?.id === targetId) {
+          state.selectedJobSeeker.status = newStatus ? 'Active' : 'Inactive';
+        }
       })
       .addCase(toggleJobSeekerStatus.fulfilled, (state, action: PayloadAction<JobSeekerDetailResponse>) => {
         state.isUpdating = false;
@@ -310,6 +332,18 @@ const jobSeekersSlice = createSlice({
       .addCase(toggleJobSeekerStatus.rejected, (state, action) => {
         state.isUpdating = false;
         state.error = action.payload || 'Failed to toggle status';
+        
+        // Revert Optimistic UI Update on failure
+        const targetId = action.meta.arg.id;
+        const originalStatus = !action.meta.arg.isActive; // Invert what we tried to set
+        
+        const index = state.allJobSeekers.findIndex(js => js.id === targetId);
+        if (index !== -1) {
+          state.allJobSeekers[index].status = originalStatus ? 'Active' : 'Inactive';
+        }
+        if (state.selectedJobSeeker?.id === targetId) {
+          state.selectedJobSeeker.status = originalStatus ? 'Active' : 'Inactive';
+        }
       })
 
       // Update

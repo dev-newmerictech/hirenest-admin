@@ -30,6 +30,7 @@ const transformUser = (apiUser: any): NotOnboardedUser => ({
   onboardingStage: apiUser.onboardingStage,
   source: apiUser.createdBy?.acquisitionSource || 'direct',
   sourceData: apiUser.createdBy?.acquisitionData || {},
+  draftProfile: apiUser.draftProfile || null,
 });
 
 export const loadNotOnboardedFromCache = createAsyncThunk<
@@ -75,7 +76,7 @@ export const syncNotOnboarded = createAsyncThunk<
   { rejectValue: string }
 >(
   'notOnboarded/sync',
-  async (lastFetchedAt, { rejectWithValue }) => {
+  async (lastFetchedAt, { rejectWithValue, dispatch }) => {
     try {
       const since = new Date(lastFetchedAt).toISOString();
       const response = await notOnboardedApi.sync(since);
@@ -84,7 +85,17 @@ export const syncNotOnboarded = createAsyncThunk<
       const deletedIds = response.data.deletedIds;
 
       const cached = await getCachedData<NotOnboardedUser[]>('admin_not_onboarded', 'admin_not_onboarded_time');
-      let currentRecords = cached?.data || [];
+      
+      if (!cached || !cached.data || cached.data.length === 0) {
+        const fullFetchAction = await dispatch(fetchAllNotOnboarded() as any);
+        if (fetchAllNotOnboarded.fulfilled.match(fullFetchAction)) {
+          return fullFetchAction.payload;
+        } else {
+          throw new Error('Fallback full fetch failed');
+        }
+      }
+
+      let currentRecords = cached.data;
 
       // 1. Remove deleted
       currentRecords = currentRecords.filter(r => !deletedIds.includes(r.id));

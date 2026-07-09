@@ -17,6 +17,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious, PaginationEllipsis } from "@/components/ui/pagination"
+import { DateRangeFilter } from "@/components/admin/date-range-filter"
+import { DateRange } from "react-day-picker"
 import { useToast } from "@/hooks/use-toast"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import { 
@@ -31,7 +33,7 @@ import { useCanWrite } from "@/lib/rbacConfig"
 import { exportToExcel } from "@/lib/utils/excelExport"
 import type { Job } from "@/lib/types"
 import { jobPostsApi, transformJobPost } from "@/lib/api/jobPosts"
-import { format, formatDistanceToNow } from "date-fns"
+import { format, formatDistanceToNow, isWithinInterval, startOfDay, endOfDay } from "date-fns"
 import { MoreVertical, Eye, XCircle, Trash2, RefreshCw, Download } from "lucide-react"
 import { useSearchParams } from "next/navigation"
 
@@ -51,19 +53,20 @@ export default function JobsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
+  const [dateRange, setDateRange] = useState<DateRange | undefined>()
 
-  // Load from IndexedDB cache on mount, fetch from API if no cache
+  // Load from IndexedDB cache for instant display, then always fetch fresh data from API
   useEffect(() => {
     const initData = async () => {
-      if (allJobPosts.length > 0 && lastFetchedAt) return
-
-      const cacheResult = await dispatch(loadJobPostsFromCache()).unwrap()
-      if (!cacheResult) {
-        dispatch(fetchAllJobPosts())
+      // Load cache first for instant display
+      if (allJobPosts.length === 0) {
+        await dispatch(loadJobPostsFromCache()).unwrap()
       }
+      // Always fetch fresh data from API to avoid stale cache
+      dispatch(fetchAllJobPosts())
     }
     initData()
-  }, [dispatch, allJobPosts.length, lastFetchedAt])
+  }, [dispatch])
 
   // Deep-link support: auto-open a job's drawer when navigated with ?highlight=<jobId>
   const searchParams = useSearchParams()
@@ -163,6 +166,17 @@ export default function JobsPage() {
 
     if (filterStatus !== "all") {
       filtered = filtered.filter((job) => job.status === filterStatus)
+    }
+
+    if (dateRange?.from) {
+      const from = startOfDay(dateRange.from)
+      const to = dateRange.to ? endOfDay(dateRange.to) : endOfDay(dateRange.from)
+      
+      filtered = filtered.filter((job) => {
+        if (!job.postedDate) return false
+        const jobDate = new Date(job.postedDate)
+        return isWithinInterval(jobDate, { start: from, end: to })
+      })
     }
 
     return filtered
@@ -335,25 +349,10 @@ export default function JobsPage() {
     <AuthGuard>
       <AdminLayout>
         <div className="space-y-6">
-          <div className="mt-4 sm:mt-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <PageHeader title="Job Management" description="Manage job postings and their status" />
 
-            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-              <SearchBar 
-                placeholder="Search by title, company..." 
-                value={searchQuery} 
-                onChange={handleSearchChange} 
-              />
-              <Select value={filterStatus} onValueChange={handleStatusFilterChange}>
-                <SelectTrigger className="bg-white w-[130px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Jobs</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="closed">Closed</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="icon"
@@ -383,6 +382,25 @@ export default function JobsPage() {
               {' · '}{allJobPosts.length} records loaded
             </div>
           )}
+
+          <div className="flex flex-col sm:flex-row gap-2 w-full">
+            <SearchBar 
+              placeholder="Search by title, company..." 
+              value={searchQuery} 
+              onChange={handleSearchChange} 
+            />
+            <DateRangeFilter date={dateRange} setDate={setDateRange} />
+            <Select value={filterStatus} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="bg-white w-[130px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Jobs</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="closed">Closed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {isLoading ? (
             <div className="h-64 rounded-lg bg-muted animate-pulse" />

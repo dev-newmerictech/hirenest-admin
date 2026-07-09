@@ -15,6 +15,21 @@ export interface JobSeekersCountResponse {
   data: DashboardStatsData;
 }
 
+export interface AnalyticsDataPoint {
+  date: string;
+  count: number;
+}
+
+export interface DashboardAnalyticsResponse {
+  status: string;
+  data: {
+    jobSeekers: AnalyticsDataPoint[];
+    companies: AnalyticsDataPoint[];
+    jobs: AnalyticsDataPoint[];
+    notOnboarded: AnalyticsDataPoint[];
+  };
+}
+
 /**
  * Fetch job seekers count from the backend
  * Token is automatically picked up from localStorage by the API client
@@ -25,6 +40,13 @@ export const dashboardApi = {
    */
   getJobSeekersCount: async (): Promise<JobSeekersCountResponse> => {
     return api.get<JobSeekersCountResponse>('/admin/job-seekers/count');
+  },
+
+  /**
+   * Get registration analytics over time
+   */
+  getDashboardAnalytics: async (range: string = '7d'): Promise<DashboardAnalyticsResponse> => {
+    return api.get<DashboardAnalyticsResponse>(`/admin/analytics/dashboard?range=${range}`);
   },
 };
 

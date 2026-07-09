@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 export interface Column<T> {
   key: string
-  label: string
+  label: React.ReactNode | string
   render?: (item: T) => React.ReactNode
 }
 

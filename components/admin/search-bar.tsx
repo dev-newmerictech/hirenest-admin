@@ -22,12 +22,14 @@ export function SearchBar({ placeholder = "Search...", value, onChange }: Search
 
   // Debounce the change notification
   useEffect(() => {
+    if (localValue === value) return;
+
     const timer = setTimeout(() => {
       onChange(localValue)
     }, 300)
     
     return () => clearTimeout(timer)
-  }, [localValue, onChange])
+  }, [localValue, value, onChange])
 
   return (
     <div className="relative w-full max-w-sm">

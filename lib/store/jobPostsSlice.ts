@@ -111,7 +111,7 @@ export const syncJobPosts = createAsyncThunk<
   { rejectValue: string }
 >(
   'jobPosts/sync',
-  async (lastFetchedAt, { rejectWithValue }) => {
+  async (lastFetchedAt, { rejectWithValue, dispatch }) => {
     try {
       const since = new Date(lastFetchedAt).toISOString();
       const response = await jobPostsApi.syncJobPosts(since);
@@ -124,7 +124,16 @@ export const syncJobPosts = createAsyncThunk<
         CACHE_KEYS.jobPostsTime
       );
       
-      let currentRecords = cached?.data || [];
+      if (!cached || !cached.data || cached.data.length === 0) {
+        const fullFetchAction = await dispatch(fetchAllJobPosts() as any);
+        if (fetchAllJobPosts.fulfilled.match(fullFetchAction)) {
+          return fullFetchAction.payload;
+        } else {
+          throw new Error('Fallback full fetch failed');
+        }
+      }
+      
+      let currentRecords = cached.data;
       
       currentRecords = currentRecords.filter(r => !deletedIds.includes(r.id));
       
