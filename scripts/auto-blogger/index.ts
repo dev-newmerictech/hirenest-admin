@@ -27,7 +27,11 @@ const DELAY_BETWEEN_POSTS_MS = 3_000; // 3 seconds between posts
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_MODEL = "groq/compound"; // Compound system with built-in web search
+const GROQ_MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b"; // Production MoE with built-in browser search (Exa)
+const GROQ_FALLBACK_MODELS = [
+  "openai/gpt-oss-20b",
+  "llama-3.3-70b-versatile",
+];
 const OPENROUTER_MODEL = "meta-llama/llama-3.3-70b-instruct:free"; // Fallback Llama model on OpenRouter
 const OPENAI_MODEL = "gpt-4o-mini"; // Fallback if no OpenRouter/Groq key
 const MAX_RETRIES = 2;
@@ -311,16 +315,16 @@ async function callAI(
   const isOpenRouter = !isGroq && apiKey.startsWith("sk-or-");
   
   let apiUrl = OPENAI_API_URL;
-  let model = OPENAI_MODEL;
+  let modelList = [OPENAI_MODEL];
   let maxTokens = 4096;
 
   if (isGroq) {
     apiUrl = GROQ_API_URL;
-    model = GROQ_MODEL;
-    maxTokens = 6000; // Groq limits
+    modelList = [GROQ_MODEL, ...GROQ_FALLBACK_MODELS];
+    maxTokens = 8192;
   } else if (isOpenRouter) {
     apiUrl = OPENROUTER_API_URL;
-    model = OPENROUTER_MODEL;
+    modelList = [OPENROUTER_MODEL];
     maxTokens = 8192;
   }
 
@@ -334,53 +338,72 @@ async function callAI(
     headers["X-Title"] = "Hirenest Auto-Blogger";
   }
 
-  const bodyPayload: any = {
-    model,
-    messages: [{ role: "user", content: prompt }],
-    temperature,
-    max_tokens: maxTokens, 
-  };
+  for (let modelIdx = 0; modelIdx < modelList.length; modelIdx++) {
+    const currentModel = modelList[modelIdx];
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(bodyPayload),
-      });
+    const bodyPayload: any = {
+      model: currentModel,
+      messages: [{ role: "user", content: prompt }],
+      temperature,
+      max_tokens: maxTokens,
+    };
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        const providerName = isGroq ? "Groq" : (isOpenRouter ? "OpenRouter" : "OpenAI");
-        throw new Error(
-          `${providerName} API error (${response.status}): ${errorBody}`
-        );
-      }
+    // Built-in browser search support on Groq for GPT-OSS models
+    if (isGroq && currentModel.includes("gpt-oss")) {
+      bodyPayload.tools = [{ type: "browser_search" }];
+      bodyPayload.reasoning_effort = "low";
+    }
 
-      const data = await response.json();
-      const text = data?.choices?.[0]?.message?.content;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const response = await fetch(apiUrl, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(bodyPayload),
+        });
 
-      if (!text) {
-        const providerName = isGroq ? "Groq" : (isOpenRouter ? "OpenRouter" : "OpenAI");
-        throw new Error(`Empty response from ${providerName}`);
-      }
+        if (!response.ok) {
+          const errorBody = await response.text();
+          const providerName = isGroq ? "Groq" : (isOpenRouter ? "OpenRouter" : "OpenAI");
+          throw new Error(
+            `${providerName} API error (${response.status}) on model ${currentModel}: ${errorBody}`
+          );
+        }
 
-      return text;
-    } catch (err: any) {
-      if (attempt < MAX_RETRIES) {
-        log(
-          `    ⚠ API call failed (attempt ${attempt + 1}/${MAX_RETRIES + 1}): ${err.message}`,
-          "yellow"
-        );
-        // Exponential backoff
-        await sleep(2000 * (attempt + 1));
-      } else {
-        throw err;
+        const data = await response.json();
+        const text = data?.choices?.[0]?.message?.content;
+
+        if (!text) {
+          const providerName = isGroq ? "Groq" : (isOpenRouter ? "OpenRouter" : "OpenAI");
+          throw new Error(`Empty response from ${providerName} on model ${currentModel}`);
+        }
+
+        return text;
+      } catch (err: any) {
+        const isLastModel = modelIdx === modelList.length - 1;
+        const isLastAttempt = attempt === MAX_RETRIES;
+
+        if (!isLastAttempt) {
+          log(
+            `    ⚠ API call failed (model: ${currentModel}, attempt ${attempt + 1}/${MAX_RETRIES + 1}): ${err.message}`,
+            "yellow"
+          );
+          // Exponential backoff
+          await sleep(2000 * (attempt + 1));
+        } else if (!isLastModel) {
+          log(
+            `    ⚠ Model ${currentModel} exhausted retries, falling back to ${modelList[modelIdx + 1]}...`,
+            "yellow"
+          );
+          break; // break retry loop to try next model
+        } else {
+          throw err;
+        }
       }
     }
   }
 
-  throw new Error("All retry attempts exhausted");
+  throw new Error("All retry attempts and fallback models exhausted");
 }
 
 // ─── S3 Publisher ────────────────────────────────────────────────────────
