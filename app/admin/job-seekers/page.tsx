@@ -103,13 +103,13 @@ export default function JobSeekersPage() {
       } else {
         // Score completeness: non-N/A location, gender, mobile, or address
         const existingScore =
-          (existing.location && existing.location !== 'N/A' ? 3 : 0) +
+          ((existing as any).location && (existing as any).location !== 'N/A' ? 3 : 0) +
           (existing.gender && existing.gender !== 'N/A' ? 1 : 0) +
-          (existing.mobile?.mobileNumber ? 1 : 0)
+          ((existing as any).mobile?.mobileNumber ? 1 : 0)
         const currentScore =
-          (seeker.location && seeker.location !== 'N/A' ? 3 : 0) +
+          ((seeker as any).location && (seeker as any).location !== 'N/A' ? 3 : 0) +
           (seeker.gender && seeker.gender !== 'N/A' ? 1 : 0) +
-          (seeker.mobile?.mobileNumber ? 1 : 0)
+          ((seeker as any).mobile?.mobileNumber ? 1 : 0)
         if (currentScore > existingScore) {
           candidateMap.set(key, seeker)
         }

@@ -5,6 +5,7 @@
 import type React from "react"
 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { cn } from "@/lib/utils"
 
 export interface Column<T> {
   key: string

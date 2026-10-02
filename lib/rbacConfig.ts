@@ -16,6 +16,7 @@ export const roleRouteAccess: Record<AdminRole, string[]> = {
     '/admin/job-seekers',
     '/admin/companies',
     '/admin/not-onboarded',
+    '/admin/marketing-emails',
     '/admin/jobs',
     '/admin/reports',
     '/admin/user-map',
@@ -32,6 +33,7 @@ export const roleRouteAccess: Record<AdminRole, string[]> = {
     '/admin/job-seekers',
     '/admin/companies',
     '/admin/not-onboarded',
+    '/admin/marketing-emails',
     '/admin/jobs',
     '/admin/user-map',
     '/admin/settings',
@@ -49,9 +51,9 @@ export const defaultRouteForRole: Record<AdminRole, string> = {
 /**
  * Permissions per role — controls which UI actions are visible.
  */
-export const rolePermissions: Record<AdminRole, { canWrite: boolean }> = {
-  super_admin: { canWrite: true },
-  marketing: { canWrite: false },
+export const rolePermissions: Record<AdminRole, { canWrite: boolean; canManageMarketing: boolean }> = {
+  super_admin: { canWrite: true, canManageMarketing: true },
+  marketing: { canWrite: false, canManageMarketing: true },
 };
 
 /**
@@ -62,4 +64,14 @@ export function useCanWrite(): boolean {
   const user = useAppSelector((state) => state.auth.user);
   if (!user) return false;
   return rolePermissions[user.adminRole]?.canWrite ?? false;
+}
+
+/**
+ * Hook to check if user can manage marketing email templates.
+ * Returns true for both marketing role and super_admin.
+ */
+export function useCanManageMarketing(): boolean {
+  const user = useAppSelector((state) => state.auth.user);
+  if (!user) return false;
+  return rolePermissions[user.adminRole]?.canManageMarketing ?? false;
 }
