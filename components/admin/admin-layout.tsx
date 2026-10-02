@@ -87,17 +87,23 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background text-foreground">
       {/* Static sidebar for ≥1024px */}
-      <aside className="hidden tablet:block w-64 border-r border-border bg-card">
+      <aside className="hidden tablet:block w-64 border-r border-border/80 bg-sidebar/80 backdrop-blur-md">
         <div className="flex h-full flex-col">
-          {/* Logo */}
-          <div className="flex items-center border-b border-border px-6 py-4">
-            <AdminLogo width={100} height={100} />
+          {/* Header & Logo */}
+          <div className="flex items-center justify-between border-b border-border/80 px-5 py-4">
+            <div className="flex items-center gap-2">
+              <AdminLogo width={95} height={95} />
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              LIVE
+            </span>
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-3 py-4">
+          <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
             {filteredNavigation.map((item) => {
               const isActive = pathname === item.href
               return (
@@ -105,39 +111,48 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   key={item.name}
                   href={item.href}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                    "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                     isActive
-                      ? "text-[#4241FF] relative before:content-[''] before:absolute before:left-0 before:top-0 before:w-1 before:h-full before:bg-[#4241FF] before:rounded-full"
-                      : "text-[#2A3F5E] hover:bg-muted hover:text-foreground",
+                      ? "bg-primary/15 text-primary border border-primary/25 font-semibold shadow-xs"
+                      : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                   )}
                 >
-                  <item.icon className="h-5 w-5" />
-                  {item.name}
+                  <item.icon className={cn("h-4 w-4 shrink-0 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                  <span>{item.name}</span>
                 </Link>
               )
             })}
           </nav>
 
-          {/* Logout */}
-          <div className="border-t border-border p-4 flex flex-row items-center justify-between">
-            
-            <Button
-              variant="ghost"
-              className="justify-start text-muted-foreground hover:text-foreground"
-              onClick={handleLogout}
-            >
-              <LogOut className="mr-3 h-5 w-5" />
-              Logout
-            </Button>
-            <div>
+          {/* User Profile & Logout Bottom Bar */}
+          <div className="border-t border-border/80 p-3 space-y-2 bg-sidebar">
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2.5 overflow-hidden">
+                <div className="h-7 w-7 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center text-xs font-bold text-primary shrink-0">
+                  {user?.email ? user.email.slice(0, 2).toUpperCase() : "AD"}
+                </div>
+                <div className="truncate text-xs">
+                  <p className="font-medium text-foreground truncate">{user?.email || "Admin"}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">{userRole.replace('_', ' ')}</p>
+                </div>
+              </div>
               <ThemeToggle />
             </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8"
+              onClick={handleLogout}
+            >
+              <LogOut className="mr-2 h-3.5 w-3.5" />
+              Sign out
+            </Button>
           </div>
         </div>
       </aside>
 
       {/* Mobile/Tablet top bar and drawer sidebar for <1024px */}
-      <div className="tablet:hidden fixed inset-x-0 top-0 z-20 border-b border-border bg-background">
+      <div className="tablet:hidden fixed inset-x-0 top-0 z-20 border-b border-border/80 bg-background/90 backdrop-blur-md">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="icon" onClick={() => setMobileOpen(true)} aria-label="Open menu">
@@ -146,25 +161,28 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             <AdminLogo width={90} height={90} />
           </div>
           <div className="flex items-center gap-2">
-            {/* <ThemeToggle /> */}
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              Logout
-              <LogOut className="ml-2 h-4 w-4" />
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-xs">
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="p-0 w-[18rem]">
+        <SheetContent side="left" className="p-0 w-[18rem] bg-sidebar border-r border-border/80">
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation</SheetTitle>
           </SheetHeader>
           <div className="flex h-full flex-col">
-            <div className="flex items-center border-b border-border px-6 py-4">
-              <AdminLogo width={100} height={100} />
+            <div className="flex items-center justify-between border-b border-border/80 px-5 py-4">
+              <AdminLogo width={95} height={95} />
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-400">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                LIVE
+              </span>
             </div>
-            <nav className="flex-1 space-y-1 px-3 py-4">
+            <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
               {filteredNavigation.map((item) => {
                 const isActive = pathname === item.href
                 return (
@@ -172,42 +190,40 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     key={item.name}
                     href={item.href}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                      "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150",
                       isActive
-                        ? "text-[#4241FF] relative before:content-[''] before:absolute before:left-0 before:top-0 before:w-1 before:h-full before:bg-[#4241FF] before:rounded-full"
-                        : "text-[#2A3F5E] hover:bg-muted hover:text-foreground",
+                        ? "bg-primary/15 text-primary border border-primary/25 font-semibold shadow-xs"
+                        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                     )}
                     onClick={() => setMobileOpen(false)}
                   >
-                    <item.icon className="h-5 w-5" />
-                    {item.name}
+                    <item.icon className={cn("h-4 w-4 shrink-0 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                    <span>{item.name}</span>
                   </Link>
                 )
               })}
             </nav>
-            <div className="border-t border-border p-4 flex flex-row items-center justify-between">
+            <div className="border-t border-border/80 p-3 space-y-2 bg-sidebar">
               <Button
                 variant="ghost"
-                className="justify-start text-muted-foreground hover:text-foreground"
+                size="sm"
+                className="w-full justify-start text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-8"
                 onClick={() => {
                   setMobileOpen(false)
                   handleLogout()
                 }}
               >
-                <LogOut className="mr-3 h-5 w-5" />
-                Logout
+                <LogOut className="mr-2 h-3.5 w-3.5" />
+                Sign out
               </Button>
-              <div>
-                <ThemeToggle />
-              </div>
             </div>
           </div>
         </SheetContent>
       </Sheet>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto">
-        <div className="container mx-auto px-4 tablet:px-6 py-16 tablet:py-3">{children}</div>
+      <main className="flex-1 overflow-y-auto bg-background">
+        <div className="container mx-auto px-4 tablet:px-8 py-16 tablet:py-6 max-w-7xl">{children}</div>
       </main>
     </div>
   )
