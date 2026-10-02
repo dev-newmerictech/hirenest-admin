@@ -89,9 +89,33 @@ export default function JobSeekersPage() {
     }
   }, [error, toast, dispatch])
 
-  // Filter job seekers based on search query (client-side)
+  // Filter and deduplicate job seekers based on search query (client-side)
   const filteredJobSeekers = useMemo(() => {
-    const onboardedSeekers = allJobSeekers.filter(seeker => seeker.isOnboarded)
+    // 1. Deduplicate by email so the same candidate never appears twice, prioritizing profiles with complete data
+    const candidateMap = new Map<string, JobSeeker>()
+    for (const seeker of allJobSeekers) {
+      if (!seeker.isOnboarded) continue
+      const normalizedEmail = seeker.email?.toLowerCase().trim()
+      const key = normalizedEmail || seeker.id
+      const existing = candidateMap.get(key)
+      if (!existing) {
+        candidateMap.set(key, seeker)
+      } else {
+        // Score completeness: non-N/A location, gender, mobile, or address
+        const existingScore =
+          (existing.location && existing.location !== 'N/A' ? 3 : 0) +
+          (existing.gender && existing.gender !== 'N/A' ? 1 : 0) +
+          (existing.mobile?.mobileNumber ? 1 : 0)
+        const currentScore =
+          (seeker.location && seeker.location !== 'N/A' ? 3 : 0) +
+          (seeker.gender && seeker.gender !== 'N/A' ? 1 : 0) +
+          (seeker.mobile?.mobileNumber ? 1 : 0)
+        if (currentScore > existingScore) {
+          candidateMap.set(key, seeker)
+        }
+      }
+    }
+    const onboardedSeekers = Array.from(candidateMap.values())
     if (!searchQuery.trim()) return onboardedSeekers
     
     const query = searchQuery.toLowerCase()
