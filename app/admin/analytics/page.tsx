@@ -85,7 +85,7 @@ export default function AnalyticsPage() {
                 size="sm"
                 onClick={() => window.open(umamiUrl, "_blank")}
                 className="h-9 gap-1.5 text-muted-foreground hover:text-foreground"
-                title="Open Umami standalone dashboard in a new tab"
+                title="Open standalone dashboard in a new tab"
               >
                 <ExternalLink className="h-4 w-4" />
                 <span className="hidden sm:inline">New Tab</span>
@@ -104,12 +104,12 @@ export default function AnalyticsPage() {
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400">
                 <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Umami Engine Live
+                Analytics Engine Live
               </span>
             </div>
           </div>
 
-          {/* Embedded Full Umami Dashboard Container */}
+          {/* Embedded Full Dashboard Container */}
           <div
             ref={containerRef}
             className={`relative w-full rounded-xl border border-border/80 bg-card shadow-sm overflow-hidden ${
@@ -121,7 +121,7 @@ export default function AnalyticsPage() {
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <div className="text-center">
                   <p className="text-sm font-medium text-foreground">Loading Analytics Engine...</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Connecting to hardened Umami service</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Connecting to hardened analytics service</p>
                 </div>
               </div>
             )}
