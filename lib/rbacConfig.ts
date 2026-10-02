@@ -12,6 +12,7 @@ export type AdminRole = 'super_admin' | 'marketing';
 export const roleRouteAccess: Record<AdminRole, string[]> = {
   super_admin: [
     '/admin/dashboard',
+    '/admin/analytics',
     '/admin/job-seekers',
     '/admin/companies',
     '/admin/not-onboarded',
@@ -27,6 +28,7 @@ export const roleRouteAccess: Record<AdminRole, string[]> = {
   ],
   marketing: [
     '/admin/dashboard',
+    '/admin/analytics',
     '/admin/job-seekers',
     '/admin/companies',
     '/admin/not-onboarded',

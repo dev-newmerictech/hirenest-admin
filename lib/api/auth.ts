@@ -22,6 +22,7 @@ export const authApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
     const response = await fetch(`${API_URL}/admin/auth/login`, {
       method: 'POST',
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
       },
@@ -36,7 +37,15 @@ export const authApi = {
     return response.json();
   },
 
-  logout: () => {
+  logout: async () => {
+    try {
+      await fetch(`${API_URL}/admin/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch {
+      // Non-fatal if server logout call fails
+    }
     // Clear local storage
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');

@@ -25,8 +25,11 @@ const transformUser = (apiUser: any): NotOnboardedUser => ({
   name: apiUser.name,
   email: apiUser.email,
   registrationDate: apiUser.createdAt,
+  createdAt: apiUser.createdAt,
   isActive: apiUser.isActive,
   isOnboarded: apiUser.isOnboarded,
+  role: apiUser.role || 'N/A',
+  onboardingStage: apiUser.onboardingStage || 0,
   source: apiUser.createdBy?.acquisitionSource || 'direct',
   sourceData: apiUser.createdBy?.acquisitionData || {},
 });

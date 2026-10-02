@@ -8,7 +8,7 @@ import { useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, Briefcase, Settings, LogOut, Building2, Package, Menu, Coins, CreditCard, Flag, ShieldCheck, MessageSquare, Map as MapIcon, UserX } from "lucide-react"
+import { LayoutDashboard, Users, Briefcase, Settings, LogOut, Building2, Package, Menu, Coins, CreditCard, Flag, ShieldCheck, MessageSquare, Map as MapIcon, UserX, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { clearAuthSession } from "@/lib/auth"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -28,6 +28,7 @@ interface AdminLogoProps {
 
 const navigation = [
   { name: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "Analytics & UTMs", href: "/admin/analytics", icon: BarChart3 },
   { name: "Job Seekers", href: "/admin/job-seekers", icon: Users },
   { name: "Companies", href: "/admin/companies", icon: Building2 },
   { name: "Not Onboarded", href: "/admin/not-onboarded", icon: UserX },
