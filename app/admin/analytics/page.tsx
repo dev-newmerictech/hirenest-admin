@@ -13,7 +13,7 @@ export default function AnalyticsPage() {
 
   // Configurable Umami public share or dashboard URL
   const umamiUrl =
-    process.env.NEXT_PUBLIC_UMAMI_EMBED_URL || "https://analytics.hirenest.ai"
+    process.env.NEXT_PUBLIC_UMAMI_EMBED_URL || "https://analytics.hirenest.ai/share/hirenest-analytics"
 
   const handleRefresh = () => {
     setIsLoading(true)
