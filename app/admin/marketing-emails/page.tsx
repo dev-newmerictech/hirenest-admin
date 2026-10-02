@@ -355,8 +355,31 @@ export default function MarketingEmailsPage() {
         <div class="footer">
           <p>&copy; ${new Date().getFullYear()} HireNest.ai — Autonomous AI Talent & Career Platform.</p>
           <p>You received this email because you created an account on hirenest.ai.</p>
-          <p><a href="#">Manage email preferences or unsubscribe</a></p>
+          <p><a href="https://app.hirenest.ai/settings/notifications" target="_blank" style="color: #6b7280; text-decoration: underline;">Manage email preferences or unsubscribe</a></p>
         </div>
+        <script>
+          // Prevent any link from navigating inside the preview iframe
+          document.addEventListener('click', function(e) {
+            var link = e.target.closest('a');
+            if (link) {
+              e.preventDefault();
+              e.stopPropagation();
+              var href = link.getAttribute('href') || '';
+              var toast = document.getElementById('preview-link-toast');
+              if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'preview-link-toast';
+                toast.style.cssText = 'position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#0f172a;color:#ffffff;padding:8px 16px;border-radius:999px;font-size:11px;font-weight:600;font-family:-apple-system,sans-serif;box-shadow:0 10px 25px rgba(0,0,0,0.3);z-index:99999;pointer-events:none;transition:opacity 0.2s ease;';
+                document.body.appendChild(toast);
+              }
+              toast.innerText = '🔗 Link in Live Email: ' + (href.length > 40 ? href.substring(0, 37) + '...' : href);
+              toast.style.opacity = '1';
+              clearTimeout(window.__toastTimer);
+              window.__toastTimer = setTimeout(function() { toast.style.opacity = '0'; }, 2200);
+              return false;
+            }
+          }, true);
+        </script>
       </body>
       </html>
     `;
@@ -367,7 +390,7 @@ export default function MarketingEmailsPage() {
       <AdminLayout>
         <div className="space-y-6">
           <PageHeader
-            title="Emails Sent"
+            title="Emails"
             description="View, customize, and live-test every single automated email sent across HireNest — from transactional alerts to smart profile completion drips."
             action={
               <div className="flex items-center gap-2">
@@ -900,6 +923,7 @@ export default function MarketingEmailsPage() {
                           <iframe
                             title="Email Preview"
                             srcDoc={compiledPreviewHtml}
+                            sandbox="allow-scripts allow-same-origin"
                             className="w-full h-[540px] border-0 bg-white"
                           />
                         </div>
