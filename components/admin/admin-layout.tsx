@@ -32,7 +32,7 @@ const navigation = [
   { name: "Job Seekers", href: "/admin/job-seekers", icon: Users },
   { name: "Companies", href: "/admin/companies", icon: Building2 },
   { name: "Not Onboarded", href: "/admin/not-onboarded", icon: UserX },
-  { name: "Marketing Emails", href: "/admin/marketing-emails", icon: Mail },
+  { name: "Emails Sent", href: "/admin/marketing-emails", icon: Mail },
   { name: "Jobs", href: "/admin/jobs", icon: Briefcase },
   { name: "Reports", href: "/admin/reports", icon: Flag },
   { name: "Global Map", href: "/admin/user-map", icon: MapIcon },

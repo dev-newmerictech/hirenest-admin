@@ -280,38 +280,82 @@ export default function MarketingEmailsPage() {
 
     return `
       <!DOCTYPE html>
-      <html>
+      <html lang="en">
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; padding: 20px; background-color: #f3f4f6; color: #1f2937; }
-          .wrapper { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
-          .header { background: linear-gradient(135deg, #1e3a8a, #2563eb); padding: 24px; text-align: center; color: #ffffff; }
-          .header h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
-          .body-content { padding: 32px 28px; line-height: 1.6; }
-          .cta-box { text-align: center; margin-top: 28px; margin-bottom: 12px; }
-          .cta-btn { display: inline-block; background-color: #2563eb; color: #ffffff !important; padding: 12px 28px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; }
-          .footer { text-align: center; padding: 20px; font-size: 12px; color: #6b7280; border-top: 1px solid #f3f4f6; }
-          .footer a { color: #6b7280; }
+          body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9fafb;
+          }
+          .header {
+            background: linear-gradient(135deg, #1e3a8a, #2563eb);
+            color: #ffffff;
+            padding: 32px 24px;
+            text-align: center;
+            border-radius: 12px 12px 0 0;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 26px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+          }
+          .content {
+            background: #ffffff;
+            padding: 36px 30px;
+            border: 1px solid #e5e7eb;
+            border-top: none;
+            border-radius: 0 0 12px 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+          }
+          .cta-button {
+            display: inline-block;
+            background-color: #2563eb;
+            color: #ffffff !important;
+            padding: 14px 32px;
+            text-decoration: none;
+            border-radius: 8px;
+            margin: 24px 0 12px 0;
+            font-weight: 600;
+            font-size: 15px;
+            text-align: center;
+          }
+          .footer {
+            text-align: center;
+            padding: 24px;
+            font-size: 12px;
+            color: #6b7280;
+          }
+          .footer a {
+            color: #6b7280;
+            text-decoration: underline;
+          }
         </style>
       </head>
       <body>
-        <div class="wrapper">
-          <div class="header">
-            <h1>HireNest</h1>
-          </div>
-          <div class="body-content">
-            ${rawBody}
-            ${
-              rawCtaText
-                ? `<div class="cta-box"><a href="${rawCtaUrl}" target="_blank" class="cta-btn">${rawCtaText}</a></div>`
-                : ""
-            }
-          </div>
-          <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} HireNest.ai — Autonomous AI Talent & Career Platform.</p>
-            <p><a href="#">Manage email preferences or unsubscribe</a></p>
-          </div>
+        <div class="header">
+          <h1>HireNest</h1>
+        </div>
+        <div class="content">
+          ${rawBody}
+          ${
+            rawCtaText && rawCtaUrl
+              ? `<div style="text-align: center; margin-top: 28px;">
+                  <a href="${rawCtaUrl}" target="_blank" class="cta-button">${rawCtaText}</a>
+                </div>`
+              : ""
+          }
+        </div>
+        <div class="footer">
+          <p>&copy; ${new Date().getFullYear()} HireNest.ai — Autonomous AI Talent & Career Platform.</p>
+          <p>You received this email because you created an account on hirenest.ai.</p>
+          <p><a href="#">Manage email preferences or unsubscribe</a></p>
         </div>
       </body>
       </html>
@@ -323,8 +367,8 @@ export default function MarketingEmailsPage() {
       <AdminLayout>
         <div className="space-y-6">
           <PageHeader
-            title="Email & Campaign Studio"
-            description="Manage and customize every single email sent across HireNest — from transactional alerts to automated re-engagement drips."
+            title="Emails Sent"
+            description="View, customize, and live-test every single automated email sent across HireNest — from transactional alerts to smart profile completion drips."
             action={
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={handleResetDefaults} disabled={isLoading}>
@@ -473,7 +517,7 @@ export default function MarketingEmailsPage() {
                 <Card className="border-border shadow-sm">
                   <CardHeader className="border-b pb-4">
                     {/* Highlighted Trigger Banner */}
-                    <div className="rounded-lg bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 p-3 mb-4">
+                    <div className="rounded-lg bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 p-3 mb-3">
                       <div className="flex items-start gap-2.5">
                         <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
                         <div className="text-xs">
@@ -483,6 +527,58 @@ export default function MarketingEmailsPage() {
                           <p className="text-blue-800 dark:text-blue-300 mt-0.5 leading-relaxed font-medium">
                             {formData.triggerDescription || "Sent automatically based on platform events and milestones."}
                           </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Prominent Quick Live Email Tester */}
+                    <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/[0.05] p-3.5 mb-4 shadow-sm">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-emerald-950 dark:text-emerald-200">
+                              Direct Inbox Tester (Resend API)
+                            </span>
+                            <Badge variant="outline" className="text-[10px] py-0 px-1.5 bg-background text-emerald-700 dark:text-emerald-400 border-emerald-500/30 font-mono">
+                              Verified: hirenest.ai
+                            </Badge>
+                          </div>
+                          <p className="text-[11.5px] text-muted-foreground">
+                            Enter any email address to test send &ldquo;{formData.name}&rdquo; straight to your inbox via Resend.
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                          <div className="relative flex-1 sm:w-[250px]">
+                            <Mail className="h-3.5 w-3.5 absolute left-2.5 top-2.5 text-muted-foreground pointer-events-none" />
+                            <Input
+                              type="email"
+                              placeholder="Enter your email ID (e.g. name@gmail.com)"
+                              value={testEmailAddress}
+                              onChange={(e) => setTestEmailAddress(e.target.value)}
+                              className="pl-8 h-8 text-xs bg-background"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSendTestEmail();
+                              }}
+                            />
+                          </div>
+                          <Button
+                            onClick={handleSendTestEmail}
+                            disabled={isSendingTest || !testEmailAddress || isLoading}
+                            size="sm"
+                            className="h-8 px-3.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shrink-0 shadow-sm"
+                          >
+                            {isSendingTest ? (
+                              <>
+                                <RefreshCw className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Sending...
+                              </>
+                            ) : (
+                              <>
+                                <Send className="mr-1.5 h-3.5 w-3.5" /> Send Test Email
+                              </>
+                            )}
+                          </Button>
                         </div>
                       </div>
                     </div>
@@ -677,53 +773,113 @@ export default function MarketingEmailsPage() {
                         </div>
 
                         {/* CTA Button Settings */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
-                          <div className="space-y-1.5">
-                            <Label htmlFor="ctaText" className="text-xs font-semibold">
-                              CTA Button Text
-                            </Label>
-                            <Input
-                              id="ctaText"
-                              value={formData.ctaText || ""}
-                              onChange={(e) =>
-                                setFormData((prev) => ({ ...prev, ctaText: e.target.value }))
-                              }
-                              placeholder="e.g. Complete My Profile →"
-                            />
+                        <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-foreground">
+                                🔘 Call-to-Action (CTA) Button
+                              </span>
+                              <Badge variant="outline" className="text-[10px]">
+                                Primary Link
+                              </Badge>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground">
+                              Renders a high-conversion button in the email body
+                            </span>
                           </div>
 
-                          <div className="space-y-1.5">
-                            <Label htmlFor="ctaUrl" className="text-xs font-semibold">
-                              CTA Button URL
-                            </Label>
-                            <Input
-                              id="ctaUrl"
-                              value={formData.ctaUrl || ""}
-                              onChange={(e) =>
-                                setFormData((prev) => ({ ...prev, ctaUrl: e.target.value }))
-                              }
-                              placeholder="https://app.hirenest.ai/profile"
-                            />
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="ctaText" className="text-xs font-semibold flex items-center justify-between">
+                                <span>CTA Button Text</span>
+                                <span className="text-[10px] text-muted-foreground font-normal">Button label</span>
+                              </Label>
+                              <Input
+                                id="ctaText"
+                                value={formData.ctaText || ""}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({ ...prev, ctaText: e.target.value }))
+                                }
+                                placeholder="e.g. Complete My Profile (Takes 90s) →"
+                                className="text-xs"
+                              />
+                              <p className="text-[11px] text-muted-foreground leading-normal">
+                                The label on the main action button (e.g. &ldquo;Explore Jobs&rdquo;, &ldquo;Verify Account&rdquo;). Leave empty for no button.
+                              </p>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label htmlFor="ctaUrl" className="text-xs font-semibold flex items-center justify-between">
+                                <span>CTA Button URL</span>
+                                <span className="text-[10px] text-muted-foreground font-normal">Destination link</span>
+                              </Label>
+                              <Input
+                                id="ctaUrl"
+                                value={formData.ctaUrl || ""}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({ ...prev, ctaUrl: e.target.value }))
+                                }
+                                placeholder="https://app.hirenest.ai/profile"
+                                className="text-xs font-mono"
+                              />
+                              <p className="text-[11px] text-muted-foreground leading-normal">
+                                Where users land when clicking the button. Dynamic variables like <code>{"{{ctaUrl}}"}</code> or <code>{"{{profileUrl}}"}</code> are supported.
+                              </p>
+                            </div>
                           </div>
                         </div>
 
-                        {/* Delay Hours */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
-                          <div className="space-y-1.5">
-                            <Label htmlFor="delayHours" className="text-xs font-semibold">
-                              Trigger Delay (Hours after milestone)
-                            </Label>
-                            <Input
-                              id="delayHours"
-                              type="number"
-                              value={formData.delayHours || 0}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  delayHours: Number(e.target.value),
-                                }))
-                              }
-                            />
+                        {/* Trigger Delay Settings */}
+                        <div className="p-4 rounded-xl border bg-muted/20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-3.5 w-3.5 text-primary" />
+                              <span className="text-xs font-bold text-foreground">
+                                Trigger Delay (Cadence)
+                              </span>
+                              <Badge variant="outline" className="text-[10px]">
+                                {Number(formData.delayHours || 0) === 0
+                                  ? "Instant Alert (0h)"
+                                  : `${formData.delayHours} Hours (${Math.round(((formData.delayHours || 0) / 24) * 10) / 10} Days)`}
+                              </Badge>
+                            </div>
+                            <span className="text-[11px] text-muted-foreground">
+                              Automated delay before dispatch
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="delayHours" className="text-xs font-semibold">
+                                Trigger Delay (Hours after milestone)
+                              </Label>
+                              <Input
+                                id="delayHours"
+                                type="number"
+                                min={0}
+                                value={formData.delayHours ?? 0}
+                                onChange={(e) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    delayHours: Number(e.target.value),
+                                  }))
+                                }
+                                className="text-xs font-mono"
+                              />
+                              <p className="text-[11px] text-muted-foreground leading-normal">
+                                How many hours after the platform event occurs before sending this email.
+                              </p>
+                            </div>
+
+                            <div className="rounded-lg bg-background/90 border p-2.5 text-xs space-y-1">
+                              <p className="font-semibold text-foreground text-[11px]">Common Timing Examples:</p>
+                              <div className="text-[11px] text-muted-foreground space-y-0.5">
+                                <div>• <code className="font-mono text-[10px]">0 hrs</code>: Instant alert (Applied, Shortlisted, Hired)</div>
+                                <div>• <code className="font-mono text-[10px]">24 hrs</code>: Day 1 onboarding incomplete nudge</div>
+                                <div>• <code className="font-mono text-[10px]">72 hrs</code>: Day 3 AI resume builder reminder</div>
+                                <div>• <code className="font-mono text-[10px]">168 hrs</code>: Day 7 weekly matching job radar</div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
