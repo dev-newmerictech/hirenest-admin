@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -33,24 +33,37 @@ import {
   Code,
   Sparkles,
   Clock,
-  CheckCircle2,
   RefreshCw,
-  AlertCircle,
   Copy,
   Check,
   Smartphone,
   Monitor,
+  Info,
+  ChevronDown,
+  Layers,
+  Search,
 } from "lucide-react";
 
 const SAMPLE_VARIABLES: Record<string, string> = {
   "{{firstName}}": "Alex",
   "{{seekerName}}": "Alex Morgan",
-  "{{providerName}}": "Acme Corp",
+  "{{providerName}}": "Acme Talent Corp",
   "{{companyName}}": "TechVision AI",
   "{{jobTitle}}": "Senior Full Stack Engineer",
   "{{profileCompletion}}": "45%",
+  "{{interviewDate}}": "Monday, Oct 12, 2026",
+  "{{interviewTime}}": "10:30 AM EST",
   "{{profileUrl}}": "https://app.hirenest.ai/profile",
   "{{ctaUrl}}": "https://app.hirenest.ai",
+};
+
+const CATEGORY_LABELS: Record<string, { label: string; icon: string }> = {
+  all: { label: "All Templates", icon: "📬" },
+  onboarding_drip: { label: "Incomplete Profile Drips", icon: "🚀" },
+  resume_nudge: { label: "Resume Nudges", icon: "📄" },
+  application_followup: { label: "Application Lifecycle", icon: "🎯" },
+  employer_drip: { label: "Employer Workflows", icon: "🏢" },
+  custom: { label: "System & Auth", icon: "🔒" },
 };
 
 export default function MarketingEmailsPage() {
@@ -60,6 +73,7 @@ export default function MarketingEmailsPage() {
   const [templates, setTemplates] = useState<MarketingEmailTemplate[]>([]);
   const [selectedSlug, setSelectedSlug] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
+  const [searchFilter, setSearchFilter] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [activeEditorTab, setActiveEditorTab] = useState<"edit" | "preview">("edit");
@@ -105,6 +119,7 @@ export default function MarketingEmailsPage() {
     setFormData({
       name: tpl.name,
       slug: tpl.slug,
+      triggerDescription: tpl.triggerDescription || "",
       category: tpl.category,
       targetRole: tpl.targetRole,
       subject: tpl.subject,
@@ -112,7 +127,7 @@ export default function MarketingEmailsPage() {
       bodyHtml: tpl.bodyHtml,
       ctaText: tpl.ctaText || "",
       ctaUrl: tpl.ctaUrl || "",
-      delayHours: tpl.delayHours || 24,
+      delayHours: tpl.delayHours ?? 0,
       isActive: tpl.isActive ?? true,
       tags: tpl.tags || [],
     });
@@ -123,9 +138,17 @@ export default function MarketingEmailsPage() {
   }, [templates, selectedSlug]);
 
   const filteredTemplates = useMemo(() => {
-    if (selectedCategory === "all") return templates;
-    return templates.filter((t) => t.category === selectedCategory);
-  }, [templates, selectedCategory]);
+    return templates.filter((t) => {
+      const matchesCategory = selectedCategory === "all" || t.category === selectedCategory;
+      const matchesSearch =
+        !searchFilter ||
+        t.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        t.subject.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        t.slug.toLowerCase().includes(searchFilter.toLowerCase()) ||
+        (t.triggerDescription && t.triggerDescription.toLowerCase().includes(searchFilter.toLowerCase()));
+      return matchesCategory && matchesSearch;
+    });
+  }, [templates, selectedCategory, searchFilter]);
 
   const handleCopyVariable = (varName: string) => {
     navigator.clipboard.writeText(varName);
@@ -172,7 +195,7 @@ export default function MarketingEmailsPage() {
   };
 
   const handleResetDefaults = async () => {
-    if (!confirm("Are you sure you want to reset all email templates to default values?")) return;
+    if (!confirm("Are you sure you want to reset all 15 email templates to default values?")) return;
     setIsLoading(true);
     try {
       const res = await marketingTemplatesApi.resetDefaults();
@@ -300,12 +323,12 @@ export default function MarketingEmailsPage() {
       <AdminLayout>
         <div className="space-y-6">
           <PageHeader
-            title="Marketing & Lifecycle Emails"
-            description="Customize automated marketing drips, nudge incomplete user profiles, and test copy directly with real inboxes."
+            title="Email & Campaign Studio"
+            description="Manage and customize every single email sent across HireNest — from transactional alerts to automated re-engagement drips."
             action={
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={handleResetDefaults} disabled={isLoading}>
-                  <RefreshCw className="mr-2 h-4 w-4" /> Reset Defaults
+                  <RefreshCw className="mr-2 h-4 w-4" /> Reset 15 Defaults
                 </Button>
                 <Button
                   size="sm"
@@ -313,20 +336,65 @@ export default function MarketingEmailsPage() {
                   disabled={!selectedSlug || isLoading}
                   className="bg-primary text-primary-foreground hover:bg-primary/90"
                 >
-                  <Send className="mr-2 h-4 w-4" /> Send Test Email
+                  <Send className="mr-2 h-4 w-4" /> Send Test to Inbox
                 </Button>
               </div>
             }
           />
 
+          {/* Quick Dropdown Selector for All Templates */}
+          <Card className="border-primary/20 bg-primary/[0.02] shadow-sm">
+            <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <Layers className="h-5 w-5" />
+                </div>
+                <div>
+                  <Label htmlFor="template-dropdown" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Select Any Platform Template to Edit & Test
+                  </Label>
+                  <div className="relative mt-1">
+                    <select
+                      id="template-dropdown"
+                      value={selectedSlug}
+                      onChange={(e) => {
+                        const target = templates.find((t) => t.slug === e.target.value);
+                        if (target) selectTemplate(target);
+                      }}
+                      className="w-full md:w-[380px] bg-background border border-input rounded-md px-3 py-2 text-sm font-semibold text-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary appearance-none cursor-pointer pr-8"
+                    >
+                      {templates.map((tpl) => (
+                        <option key={tpl.slug} value={tpl.slug}>
+                          [{tpl.targetRole.toUpperCase()}] {tpl.name}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="h-4 w-4 absolute right-2.5 top-3 pointer-events-none opacity-50" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative w-full md:w-[260px]">
+                <Search className="h-4 w-4 absolute left-2.5 top-2.5 text-muted-foreground pointer-events-none" />
+                <Input
+                  placeholder="Search templates or triggers..."
+                  value={searchFilter}
+                  onChange={(e) => setSearchFilter(e.target.value)}
+                  className="pl-8 text-xs bg-background"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Category Tabs */}
           <Tabs value={selectedCategory} onValueChange={setSelectedCategory} className="w-full">
-            <TabsList className="grid grid-cols-2 md:grid-cols-5 w-full">
-              <TabsTrigger value="all">All Campaigns</TabsTrigger>
-              <TabsTrigger value="onboarding_drip">Onboarding Drips</TabsTrigger>
-              <TabsTrigger value="resume_nudge">Resume Nudges</TabsTrigger>
-              <TabsTrigger value="application_followup">Application Follow-up</TabsTrigger>
-              <TabsTrigger value="employer_drip">Employer Activation</TabsTrigger>
+            <TabsList className="grid grid-cols-2 md:grid-cols-6 w-full h-auto p-1 gap-1">
+              {Object.entries(CATEGORY_LABELS).map(([catKey, catInfo]) => (
+                <TabsTrigger key={catKey} value={catKey} className="text-xs py-2">
+                  <span className="mr-1.5">{catInfo.icon}</span> {catInfo.label}
+                </TabsTrigger>
+              ))}
             </TabsList>
           </Tabs>
 
@@ -350,51 +418,52 @@ export default function MarketingEmailsPage() {
               ) : filteredTemplates.length === 0 ? (
                 <Card className="p-6 text-center text-muted-foreground">
                   <Mail className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">No templates in this category.</p>
+                  <p className="text-sm">No templates found matching your criteria.</p>
                 </Card>
               ) : (
-                filteredTemplates.map((tpl) => {
-                  const isSelected = tpl.slug === selectedSlug;
-                  return (
-                    <Card
-                      key={tpl.slug}
-                      onClick={() => selectTemplate(tpl)}
-                      className={`cursor-pointer transition-all duration-150 hover:border-primary/50 ${
-                        isSelected
-                          ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
-                          : "border-border/60 hover:bg-muted/30"
-                      }`}
-                    >
-                      <CardContent className="p-4 space-y-2">
-                        <div className="flex items-start justify-between gap-2">
-                          <h4 className="font-semibold text-sm leading-snug line-clamp-1">{tpl.name}</h4>
-                          <Badge
-                            variant={tpl.isActive ? "default" : "secondary"}
-                            className="text-[10px] uppercase font-bold shrink-0"
-                          >
-                            {tpl.isActive ? "Active" : "Paused"}
-                          </Badge>
-                        </div>
+                <div className="space-y-2.5 max-h-[750px] overflow-y-auto pr-1">
+                  {filteredTemplates.map((tpl) => {
+                    const isSelected = tpl.slug === selectedSlug;
+                    return (
+                      <Card
+                        key={tpl.slug}
+                        onClick={() => selectTemplate(tpl)}
+                        className={`cursor-pointer transition-all duration-150 hover:border-primary/50 ${
+                          isSelected
+                            ? "border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20"
+                            : "border-border/60 hover:bg-muted/30"
+                        }`}
+                      >
+                        <CardContent className="p-3.5 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-semibold text-xs leading-snug line-clamp-1">{tpl.name}</h4>
+                            <Badge
+                              variant={tpl.isActive ? "default" : "secondary"}
+                              className="text-[9px] uppercase font-bold shrink-0 px-1.5 py-0"
+                            >
+                              {tpl.isActive ? "Active" : "Paused"}
+                            </Badge>
+                          </div>
 
-                        <p className="text-xs text-muted-foreground line-clamp-1">
-                          Subject: {tpl.subject}
-                        </p>
+                          {tpl.triggerDescription && (
+                            <p className="text-[11px] text-muted-foreground line-clamp-2 italic">
+                              ⚡ {tpl.triggerDescription}
+                            </p>
+                          )}
 
-                        <div className="flex items-center justify-between pt-1 text-[11px] text-muted-foreground border-t border-border/40">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {tpl.delayHours >= 24
-                              ? `Day ${Math.floor(tpl.delayHours / 24)}`
-                              : `${tpl.delayHours}h`}
-                          </span>
-                          <span className="capitalize font-medium">
-                            {tpl.targetRole === "all" ? "Seekers & Employers" : tpl.targetRole}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
+                          <div className="flex items-center justify-between pt-1 text-[11px] text-muted-foreground border-t border-border/40">
+                            <span className="flex items-center gap-1 font-mono text-[10px]">
+                              {tpl.slug}
+                            </span>
+                            <span className="capitalize font-medium text-[10px] bg-muted px-1.5 py-0.5 rounded">
+                              {tpl.targetRole}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
               )}
             </div>
 
@@ -403,6 +472,21 @@ export default function MarketingEmailsPage() {
               {selectedTemplate ? (
                 <Card className="border-border shadow-sm">
                   <CardHeader className="border-b pb-4">
+                    {/* Highlighted Trigger Banner */}
+                    <div className="rounded-lg bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 p-3 mb-4">
+                      <div className="flex items-start gap-2.5">
+                        <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+                        <div className="text-xs">
+                          <span className="font-bold text-blue-900 dark:text-blue-200 uppercase tracking-wide">
+                            When this email is sent:
+                          </span>
+                          <p className="text-blue-800 dark:text-blue-300 mt-0.5 leading-relaxed font-medium">
+                            {formData.triggerDescription || "Sent automatically based on platform events and milestones."}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
@@ -412,7 +496,7 @@ export default function MarketingEmailsPage() {
                           </Badge>
                         </div>
                         <CardDescription className="text-xs mt-1">
-                          Triggered {formData.delayHours} hours after milestone for {formData.targetRole}
+                          Role: <strong className="capitalize">{formData.targetRole}</strong> &bull; Category: <strong className="capitalize">{formData.category?.replace('_', ' ')}</strong>
                         </CardDescription>
                       </div>
 
@@ -426,7 +510,7 @@ export default function MarketingEmailsPage() {
                             }
                           />
                           <Label htmlFor="template-active" className="text-xs cursor-pointer">
-                            {formData.isActive ? "Campaign Active" : "Campaign Paused"}
+                            {formData.isActive ? "Active" : "Paused"}
                           </Label>
                         </div>
 
@@ -443,7 +527,7 @@ export default function MarketingEmailsPage() {
                     </div>
 
                     {/* Mode Toggle: Edit vs Preview */}
-                    <div className="flex items-center justify-between pt-3">
+                    <div className="flex items-center justify-between pt-4">
                       <div className="inline-flex rounded-lg border bg-muted p-1 text-muted-foreground">
                         <button
                           type="button"
@@ -523,6 +607,22 @@ export default function MarketingEmailsPage() {
 
                     {activeEditorTab === "edit" ? (
                       <div className="space-y-4">
+                        {/* Trigger Description Note */}
+                        <div className="space-y-1.5">
+                          <Label htmlFor="triggerDesc" className="text-xs font-semibold">
+                            When This Email Is Sent (Trigger Note)
+                          </Label>
+                          <Input
+                            id="triggerDesc"
+                            value={formData.triggerDescription || ""}
+                            onChange={(e) =>
+                              setFormData((prev) => ({ ...prev, triggerDescription: e.target.value }))
+                            }
+                            placeholder="e.g. Sent automatically when a candidate applies..."
+                            className="text-xs font-medium"
+                          />
+                        </div>
+
                         {/* Subject Line */}
                         <div className="space-y-1.5">
                           <Label htmlFor="subject" className="text-xs font-semibold">
@@ -561,7 +661,7 @@ export default function MarketingEmailsPage() {
                               Email Body (HTML & Variables Supported)
                             </Label>
                             <span className="text-[11px] text-muted-foreground">
-                              Uses responsive HireNest container
+                              Wrapped inside HireNest branded email container
                             </span>
                           </div>
                           <Textarea
@@ -611,12 +711,12 @@ export default function MarketingEmailsPage() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t">
                           <div className="space-y-1.5">
                             <Label htmlFor="delayHours" className="text-xs font-semibold">
-                              Trigger Delay (Hours after signup/action)
+                              Trigger Delay (Hours after milestone)
                             </Label>
                             <Input
                               id="delayHours"
                               type="number"
-                              value={formData.delayHours || 24}
+                              value={formData.delayHours || 0}
                               onChange={(e) =>
                                 setFormData((prev) => ({
                                   ...prev,
@@ -669,19 +769,19 @@ export default function MarketingEmailsPage() {
                 <Send className="h-5 w-5 text-primary" /> Send Real-Time Test Email
               </DialogTitle>
               <DialogDescription className="text-xs">
-                Send a live rendered preview of &quot;{formData.name}&quot; to any inbox via HireNest&apos;s verified Resend service.
+                Send an exact rendered preview of &quot;{formData.name}&quot; to any inbox via HireNest&apos;s verified Resend service.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-3">
               <div className="space-y-2">
                 <Label htmlFor="test-email" className="text-xs font-semibold">
-                  Recipient Email Address
+                  Recipient Email Address (e.g. your Gmail)
                 </Label>
                 <Input
                   id="test-email"
                   type="email"
-                  placeholder="e.g. yourname@company.com"
+                  placeholder="e.g. yourname@gmail.com"
                   value={testEmailAddress}
                   onChange={(e) => setTestEmailAddress(e.target.value)}
                   autoFocus
@@ -691,9 +791,9 @@ export default function MarketingEmailsPage() {
               <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
                 <p className="font-medium text-foreground">💡 How testing works:</p>
                 <p>
-                  Placeholders like <code>{"{{firstName}}"}</code> will be substituted with realistic mock candidate data.
+                  Placeholders like <code>{"{{firstName}}"}</code> and <code>{"{{jobTitle}}"}</code> will be substituted with realistic candidate and company data.
                 </p>
-                <p>Delivery typically completes in 2-3 seconds.</p>
+                <p>Delivered via <code>noreply@hirenest.ai</code> within 2-3 seconds.</p>
               </div>
             </div>
 

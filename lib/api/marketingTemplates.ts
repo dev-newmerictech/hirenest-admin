@@ -4,6 +4,7 @@ export interface MarketingEmailTemplate {
   _id?: string;
   slug: string;
   name: string;
+  triggerDescription?: string;
   category: 'onboarding_drip' | 'resume_nudge' | 'application_followup' | 'employer_drip' | 'custom';
   targetRole: 'jobseeker' | 'jobprovider' | 'all';
   subject: string;
