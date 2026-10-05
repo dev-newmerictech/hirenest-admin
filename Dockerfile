@@ -21,10 +21,14 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --production --legacy-peer-deps
 
-# Copy built files from builder
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/next.config.mjs ./next.config.mjs
+# Copy built files from builder with ownership set to node user
+COPY --chown=node:node --from=builder /app/.next ./.next
+COPY --chown=node:node --from=builder /app/public ./public
+COPY --chown=node:node --from=builder /app/next.config.mjs ./next.config.mjs
+COPY --chown=node:node --from=builder /app/package.json ./package.json
+
+# Switch to unprivileged node user (UID 1000)
+USER node
 
 # Expose your app port
 EXPOSE 3000

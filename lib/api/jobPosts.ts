@@ -21,6 +21,14 @@ export interface JobPostDetailResponse {
   data: JobPostAPIResponse;
 }
 
+export interface JobPostSyncResponse {
+  status: string;
+  data: {
+    updatedRecords: JobPostAPIResponse[];
+    deletedIds: string[];
+  };
+}
+
 // Transform API response to internal format
 export function transformJobPost(apiJobPost: JobPostAPIResponse | null | undefined): Job {
   if (!apiJobPost) {
@@ -112,5 +120,13 @@ export const jobPostsApi = {
    */
   deleteJobPost: async (id: string): Promise<{ status: string; message: string }> => {
     return api.delete(`/admin/job-posts/${id}`);
+  },
+
+  /**
+   * Sync job posts incrementally
+   * GET /admin/job-posts/sync?since={timestamp}
+   */
+  syncJobPosts: async (since: string): Promise<JobPostSyncResponse> => {
+    return api.get<JobPostSyncResponse>(`/admin/job-posts/sync?since=${encodeURIComponent(since)}`);
   },
 };

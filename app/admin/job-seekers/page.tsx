@@ -2,7 +2,7 @@
 
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { AdminLayout } from "@/components/admin/admin-layout"
 import { AuthGuard } from "@/components/admin/auth-guard"
@@ -12,6 +12,7 @@ import { DataTable, type Column } from "@/components/admin/data-table"
 import { ActionButtons } from "@/components/admin/action-buttons"
 import { StatusBadge } from "@/components/admin/status-badge"
 import { DetailDrawer } from "@/components/admin/detail-drawer"
+import { SourceBadge } from "@/components/admin/source-badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,23 +28,31 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks"
 import {
+  loadJobSeekersFromCache,
   fetchAllJobSeekers,
   toggleJobSeekerStatus,
   updateJobSeeker,
   deleteJobSeeker,
   setSearchQuery,
   clearError,
+  syncJobSeekers,
 } from "@/lib/store/jobSeekersSlice"
+import { useCanWrite } from "@/lib/rbacConfig"
+import { exportToExcel } from "@/lib/utils/excelExport"
 import type { JobSeeker } from "@/lib/types"
-import { format } from "date-fns"
+import { format, formatDistanceToNow } from "date-fns"
+import { RefreshCw, Download, CheckCircle, XCircle } from "lucide-react"
+
+const ITEMS_PER_PAGE = 10
 
 export default function JobSeekersPage() {
   const { toast } = useToast()
   const dispatch = useAppDispatch()
   const router = useRouter()
+  const canWrite = useCanWrite()
   
   // Redux state
-  const { jobSeekers, pagination, isLoading, isUpdating, isDeleting, error, searchQuery } = useAppSelector(
+  const { allJobSeekers, isLoading, isUpdating, isDeleting, error, searchQuery, lastFetchedAt } = useAppSelector(
     (state) => state.jobSeekers
   )
   
@@ -52,11 +61,21 @@ export default function JobSeekersPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [formData, setFormData] = useState<Partial<JobSeeker>>({})
   const [currentPage, setCurrentPage] = useState(1)
+  const [isSyncing, setIsSyncing] = useState(false)
 
-  // Fetch job seekers on mount and when page changes
+  // Load from IndexedDB cache on mount, fetch from API if no cache
   useEffect(() => {
-    dispatch(fetchAllJobSeekers({ page: currentPage, limit: 10 }))
-  }, [dispatch, currentPage])
+    const initData = async () => {
+      if (allJobSeekers.length > 0 && lastFetchedAt) return // Already have data in Redux
+
+      const cacheResult = await dispatch(loadJobSeekersFromCache()).unwrap()
+      if (!cacheResult) {
+        // No cache — fetch from API
+        dispatch(fetchAllJobSeekers())
+      }
+    }
+    initData()
+  }, [dispatch, allJobSeekers.length, lastFetchedAt])
 
   // Show error toast
   useEffect(() => {
@@ -70,18 +89,99 @@ export default function JobSeekersPage() {
     }
   }, [error, toast, dispatch])
 
-  // Filter job seekers based on search query
+  // Filter and deduplicate job seekers based on search query (client-side)
   const filteredJobSeekers = useMemo(() => {
-    if (!searchQuery.trim()) return jobSeekers
+    // 1. Deduplicate by email so the same candidate never appears twice, prioritizing profiles with complete data
+    const candidateMap = new Map<string, JobSeeker>()
+    for (const seeker of allJobSeekers) {
+      if (!seeker.isOnboarded) continue
+      const normalizedEmail = seeker.email?.toLowerCase().trim()
+      const key = normalizedEmail || seeker.id
+      const existing = candidateMap.get(key)
+      if (!existing) {
+        candidateMap.set(key, seeker)
+      } else {
+        // Score completeness: non-N/A location, gender, mobile, or address
+        const existingScore =
+          ((existing as any).location && (existing as any).location !== 'N/A' ? 3 : 0) +
+          (existing.gender && existing.gender !== 'N/A' ? 1 : 0) +
+          ((existing as any).mobile?.mobileNumber ? 1 : 0)
+        const currentScore =
+          ((seeker as any).location && (seeker as any).location !== 'N/A' ? 3 : 0) +
+          (seeker.gender && seeker.gender !== 'N/A' ? 1 : 0) +
+          ((seeker as any).mobile?.mobileNumber ? 1 : 0)
+        if (currentScore > existingScore) {
+          candidateMap.set(key, seeker)
+        }
+      }
+    }
+    const onboardedSeekers = Array.from(candidateMap.values())
+    if (!searchQuery.trim()) return onboardedSeekers
     
     const query = searchQuery.toLowerCase()
-    return jobSeekers.filter(
+    return onboardedSeekers.filter(
       (seeker) =>
         seeker.name.toLowerCase().includes(query) ||
         seeker.email.toLowerCase().includes(query) ||
-        seeker.phone.toLowerCase().includes(query)
+        (seeker.city && seeker.city.toLowerCase().includes(query)) ||
+        (seeker.state && seeker.state.toLowerCase().includes(query))
     )
-  }, [searchQuery, jobSeekers])
+  }, [searchQuery, allJobSeekers])
+
+  // Client-side pagination
+  const totalItems = filteredJobSeekers.length
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
+  const paginatedJobSeekers = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filteredJobSeekers.slice(start, start + ITEMS_PER_PAGE)
+  }, [filteredJobSeekers, currentPage])
+
+  // Refresh — incrementally sync or force re-fetch
+  const handleRefresh = useCallback(async () => {
+    setIsSyncing(true)
+    try {
+      if (lastFetchedAt) {
+        await dispatch(syncJobSeekers(lastFetchedAt)).unwrap()
+        toast({
+          title: "Delta Sync Complete",
+          description: `Successfully fetched incremental updates.`,
+        })
+      } else {
+        await dispatch(fetchAllJobSeekers()).unwrap()
+        toast({
+          title: "Full Sync Complete",
+          description: `Successfully loaded all job seekers.`,
+        })
+      }
+    } catch {
+      // Error is handled by the slice
+    } finally {
+      setIsSyncing(false)
+    }
+  }, [dispatch, toast, lastFetchedAt])
+
+  // Export to Excel — from in-memory data (no API call)
+  const handleExport = useCallback(() => {
+    if (allJobSeekers.length === 0) {
+      toast({ title: "No Data", description: "No job seekers to export.", variant: "destructive" })
+      return
+    }
+
+    const rows = allJobSeekers.map((seeker) => ({
+      Name: seeker.name,
+      Email: seeker.email,
+      Gender: seeker.gender || 'N/A',
+      City: seeker.city || 'N/A',
+      State: seeker.state || 'N/A',
+      Country: seeker.country || 'N/A',
+      Source: seeker.acquisitionSource || 'direct',
+      'Registration Date': format(new Date(seeker.registrationDate), "yyyy-MM-dd"),
+      Status: seeker.isActive ? 'Active' : 'Inactive',
+    }))
+
+    exportToExcel(rows, `job-seekers-${format(new Date(), 'yyyy-MM-dd')}`, 'Job Seekers')
+    toast({ title: "Export Complete", description: `Exported ${rows.length} job seekers to Excel.` })
+  }, [allJobSeekers, toast])
 
   const handleView = (jobSeeker: JobSeeker) => {
     setSelectedJobSeeker(jobSeeker)
@@ -128,7 +228,6 @@ export default function JobSeekersPage() {
         data: {
           name: formData.name,
           email: formData.email,
-          phone: formData.phone,
         },
       })
     )
@@ -144,7 +243,6 @@ export default function JobSeekersPage() {
 
   const handleSearchChange = (value: string) => {
     dispatch(setSearchQuery(value))
-    // Reset to page 1 when searching
     if (currentPage !== 1) {
       setCurrentPage(1)
     }
@@ -157,25 +255,19 @@ export default function JobSeekersPage() {
 
   // Generate page numbers for pagination
   const getPageNumbers = () => {
-    if (!pagination) return []
-    
-    const { currentPage, totalPages } = pagination
     const pages: (number | 'ellipsis')[] = []
     
     if (totalPages <= 7) {
-      // Show all pages if 7 or fewer
       for (let i = 1; i <= totalPages; i++) {
         pages.push(i)
       }
     } else {
-      // Always show first page
       pages.push(1)
       
       if (currentPage > 3) {
         pages.push('ellipsis')
       }
       
-      // Show pages around current page
       const start = Math.max(2, currentPage - 1)
       const end = Math.min(totalPages - 1, currentPage + 1)
       
@@ -187,7 +279,6 @@ export default function JobSeekersPage() {
         pages.push('ellipsis')
       }
       
-      // Always show last page
       pages.push(totalPages)
     }
     
@@ -208,7 +299,19 @@ export default function JobSeekersPage() {
       ),
     },
     { key: "email", label: "Email" },
-    { key: "phone", label: "Phone" },
+    {
+      key: "gender",
+      label: "Gender",
+      render: (item) => <span className="capitalize">{item.gender || 'N/A'}</span>,
+    },
+    {
+      key: "city",
+      label: "Location",
+      render: (item) => {
+        const parts = [item.city, item.state].filter(Boolean)
+        return <span>{parts.length > 0 ? parts.join(', ') : 'N/A'}</span>
+      },
+    },
     {
       key: "registrationDate",
       label: "Registration Date",
@@ -220,15 +323,22 @@ export default function JobSeekersPage() {
       render: (item) => <StatusBadge status={item.isActive} />,
     },
     {
+      key: "acquisitionSource",
+      label: "Source",
+      render: (item) => <SourceBadge source={item.acquisitionSource} />,
+    },
+    {
       key: "actions",
       label: "Actions",
       render: (item) => (
         <ActionButtons
           onView={() => handleView(item)}
           onViewProfile={() => item.id && router.push(`/admin/job-seekers/${item.id}`)}
-          onActivate={() => handleToggleStatus(item)}
-          onDeactivate={() => handleToggleStatus(item)}
-          onDelete={() => handleDelete(item)}
+          {...(canWrite ? {
+            onActivate: () => handleToggleStatus(item),
+            onDeactivate: () => handleToggleStatus(item),
+            onDelete: () => handleDelete(item),
+          } : {})}
           isActive={item.isActive}
         />
       ),
@@ -242,26 +352,55 @@ export default function JobSeekersPage() {
 
           <div className="mt-4 sm:mt-0 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <PageHeader title="Job Seekers" description="Manage job seeker accounts" />
-            <SearchBar 
-              placeholder="Search by name..." 
-              value={searchQuery} 
-              onChange={handleSearchChange} 
-            />
+            <div className="flex items-center gap-2">
+              <SearchBar 
+                placeholder="Search by name, email, location..." 
+                value={searchQuery} 
+                onChange={handleSearchChange} 
+              />
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleRefresh}
+                disabled={isLoading || isSyncing}
+                title="Refresh data from server"
+              >
+                <RefreshCw className={`h-4 w-4 ${isSyncing ? 'animate-spin' : ''}`} />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleExport}
+                disabled={allJobSeekers.length === 0}
+                title="Export to Excel"
+              >
+                <Download className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
+
+          {/* Sync indicator */}
+          {lastFetchedAt && (
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              Last synced {formatDistanceToNow(new Date(lastFetchedAt), { addSuffix: true })}
+              {' · '}{allJobSeekers.length} records loaded
+            </div>
+          )}
 
           {isLoading ? (
             <div className="h-64 rounded-lg bg-muted animate-pulse" />
           ) : (
             <>
-              <DataTable columns={columns} data={filteredJobSeekers} emptyMessage="No job seekers found" />
+              <DataTable columns={columns} data={paginatedJobSeekers} emptyMessage="No job seekers found" />
               
-              {/* Pagination */}
-              {pagination && pagination.totalPages > 1 && !searchQuery && (
+              {/* Client-side Pagination */}
+              {totalPages > 1 && !searchQuery && (
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4">
                   <div className="text-sm text-muted-foreground">
-                    Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
-                    {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
-                    {pagination.totalItems} job seekers
+                    Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to{' '}
+                    {Math.min(currentPage * ITEMS_PER_PAGE, totalItems)} of{' '}
+                    {totalItems} job seekers
                   </div>
                   
                   <Pagination>
@@ -271,12 +410,12 @@ export default function JobSeekersPage() {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault()
-                            if (pagination.currentPage > 1) {
-                              handlePageChange(pagination.currentPage - 1)
+                            if (currentPage > 1) {
+                              handlePageChange(currentPage - 1)
                             }
                           }}
                           className={
-                            pagination.currentPage === 1
+                            currentPage === 1
                               ? 'pointer-events-none opacity-50'
                               : 'cursor-pointer'
                           }
@@ -294,7 +433,7 @@ export default function JobSeekersPage() {
                                 e.preventDefault()
                                 handlePageChange(page)
                               }}
-                              isActive={page === pagination.currentPage}
+                              isActive={page === currentPage}
                               className="cursor-pointer"
                             >
                               {page}
@@ -308,12 +447,12 @@ export default function JobSeekersPage() {
                           href="#"
                           onClick={(e) => {
                             e.preventDefault()
-                            if (pagination.currentPage < pagination.totalPages) {
-                              handlePageChange(pagination.currentPage + 1)
+                            if (currentPage < totalPages) {
+                              handlePageChange(currentPage + 1)
                             }
                           }}
                           className={
-                            pagination.currentPage === pagination.totalPages
+                            currentPage === totalPages
                               ? 'pointer-events-none opacity-50'
                               : 'cursor-pointer'
                           }
@@ -329,32 +468,42 @@ export default function JobSeekersPage() {
 
         {/* Detail Drawer */}
         {selectedJobSeeker && (
-          <DetailDrawer open={isDetailOpen} onOpenChange={setIsDetailOpen} title="Edit Job Seeker">
+          <DetailDrawer open={isDetailOpen} onOpenChange={setIsDetailOpen} title={canWrite ? "Edit Job Seeker" : "Job Seeker Details"}>
             <div className="grid gap-6">
               <div className="space-y-2">
                 <Label htmlFor="name">Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name || ""}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
+                {canWrite ? (
+                  <Input
+                    id="name"
+                    value={formData.name || ""}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">{selectedJobSeeker.name}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email || ""}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                />
+                {canWrite ? (
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email || ""}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  />
+                ) : (
+                  <p className="text-sm text-muted-foreground">{selectedJobSeeker.email}</p>
+                )}
               </div>
               <div className="space-y-2">
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={formData.phone || ""}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                />
+                <Label>Gender</Label>
+                <p className="text-sm text-muted-foreground capitalize">{selectedJobSeeker.gender || 'N/A'}</p>
+              </div>
+              <div className="space-y-2">
+                <Label>Location</Label>
+                <p className="text-sm text-muted-foreground">
+                  {[selectedJobSeeker.city, selectedJobSeeker.state, selectedJobSeeker.country].filter(Boolean).join(', ') || 'N/A'}
+                </p>
               </div>
               <div className="space-y-2">
                 <Label>Registration Date</Label>
@@ -368,15 +517,23 @@ export default function JobSeekersPage() {
                   <StatusBadge status={selectedJobSeeker.isActive} />
                 </div>
               </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-border">
-                <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isLoading}>
-                  Cancel
-                </Button>
-                <Button onClick={handleUpdate} disabled={isLoading}>
-                  {isLoading ? "Saving..." : "Save Changes"}
-                </Button>
+              <div className="space-y-2">
+                <Label>Acquisition Source</Label>
+                <div className="mt-1">
+                  <SourceBadge source={selectedJobSeeker.acquisitionSource} />
+                </div>
               </div>
+
+              {canWrite && (
+                <div className="flex justify-end gap-3 pt-4 border-t border-border">
+                  <Button variant="outline" onClick={() => setIsDetailOpen(false)} disabled={isUpdating}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleUpdate} disabled={isUpdating}>
+                    {isUpdating ? "Saving..." : "Save Changes"}
+                  </Button>
+                </div>
+              )}
             </div>
           </DetailDrawer>
         )}

@@ -7,6 +7,8 @@ import jobSeekersReducer from "./jobSeekersSlice";
 import companiesReducer from "./companiesSlice";
 import jobPostsReducer from "./jobPostsSlice";
 import campaignReducer from "./campaignSlice";
+import feedbackAnalyticsReducer from './feedbackAnalyticsSlice';
+import notOnboardedReducer from './notOnboardedSlice';
 
 export const store = configureStore({
   reducer: {
@@ -14,8 +16,10 @@ export const store = configureStore({
     dashboard: dashboardReducer,
     jobSeekers: jobSeekersReducer,
     companies: companiesReducer,
+    notOnboarded: notOnboardedReducer,
     jobPosts: jobPostsReducer,
     campaigns: campaignReducer,
+    feedbackAnalytics: feedbackAnalyticsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
