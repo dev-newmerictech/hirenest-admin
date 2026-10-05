@@ -5,17 +5,41 @@
 import type React from "react";
 import { useState } from "react";
 
-import { usePathname, useRouter } from "next/navigation"
-import Link from "next/link"
-import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, Briefcase, Settings, LogOut, Building2, Package, Menu, Coins, CreditCard, Flag, ShieldCheck, MessageSquare, Map as MapIcon, UserX, BarChart3, Mail, Megaphone } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { clearAuthSession } from "@/lib/auth"
-import { ThemeToggle } from "@/components/theme-toggle"
-import Image from "next/image"
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
-import { useAppSelector } from "@/lib/store/hooks"
-import { roleRouteAccess, type AdminRole } from "@/lib/rbacConfig"
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+import {
+  LayoutDashboard,
+  Users,
+  Briefcase,
+  Settings,
+  LogOut,
+  Building2,
+  Package,
+  Menu,
+  Coins,
+  CreditCard,
+  Flag,
+  ShieldCheck,
+  MessageSquare,
+  Map as MapIcon,
+  UserX,
+  BarChart3,
+  Mail,
+  Megaphone,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { clearAuthSession } from "@/lib/auth";
+import { ThemeToggle } from "@/components/theme-toggle";
+import Image from "next/image";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { useAppSelector } from "@/lib/store/hooks";
+import { roleRouteAccess, type AdminRole } from "@/lib/rbacConfig";
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -73,15 +97,18 @@ function AdminLogo({ width, height }: AdminLogoProps) {
 }
 
 export function AdminLayout({ children }: AdminLayoutProps) {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const { user } = useAppSelector((state) => state.auth)
+  const pathname = usePathname();
+  const router = useRouter();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const { user } = useAppSelector((state) => state.auth);
 
   // Filter navigation items based on user's admin role
-  const userRole: AdminRole = (user?.adminRole as AdminRole) || 'super_admin'
-  const allowedRoutes = roleRouteAccess[userRole] || roleRouteAccess.super_admin
-  const filteredNavigation = navigation.filter(item => allowedRoutes.includes(item.href))
+  const userRole: AdminRole = (user?.adminRole as AdminRole) || "super_admin";
+  const allowedRoutes =
+    roleRouteAccess[userRole] || roleRouteAccess.super_admin;
+  const filteredNavigation = navigation.filter((item) =>
+    allowedRoutes.includes(item.href),
+  );
 
   const handleLogout = () => {
     clearAuthSession();
@@ -107,7 +134,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
             {filteredNavigation.map((item) => {
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href;
               return (
                 <Link
                   key={item.name}
@@ -119,7 +146,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                       : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
                   )}
                 >
-                  <item.icon className={cn("h-4 w-4 shrink-0 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                  <item.icon
+                    className={cn(
+                      "h-4 w-4 shrink-0 transition-colors",
+                      isActive
+                        ? "text-primary"
+                        : "text-muted-foreground group-hover:text-foreground",
+                    )}
+                  />
                   <span>{item.name}</span>
                 </Link>
               );
@@ -134,8 +168,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                   {user?.email ? user.email.slice(0, 2).toUpperCase() : "AD"}
                 </div>
                 <div className="truncate text-xs">
-                  <p className="font-medium text-foreground truncate">{user?.email || "Admin"}</p>
-                  <p className="text-[10px] text-muted-foreground capitalize">{userRole.replace('_', ' ')}</p>
+                  <p className="font-medium text-foreground truncate">
+                    {user?.email || "Admin"}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground capitalize">
+                    {userRole.replace("_", " ")}
+                  </p>
                 </div>
               </div>
               <ThemeToggle />
@@ -169,7 +207,12 @@ export function AdminLayout({ children }: AdminLayoutProps) {
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-xs">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLogout}
+              className="text-xs"
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
@@ -177,7 +220,10 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       </div>
 
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetContent side="left" className="p-0 w-[18rem] bg-sidebar border-r border-border/80">
+        <SheetContent
+          side="left"
+          className="p-0 w-[18rem] bg-sidebar border-r border-border/80"
+        >
           <SheetHeader className="sr-only">
             <SheetTitle>Navigation</SheetTitle>
           </SheetHeader>
@@ -191,7 +237,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
             </div>
             <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
               {filteredNavigation.map((item) => {
-                const isActive = pathname === item.href
+                const isActive = pathname === item.href;
                 return (
                   <Link
                     key={item.name}
@@ -204,7 +250,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
                     )}
                     onClick={() => setMobileOpen(false)}
                   >
-                    <item.icon className={cn("h-4 w-4 shrink-0 transition-colors", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                    <item.icon
+                      className={cn(
+                        "h-4 w-4 shrink-0 transition-colors",
+                        isActive
+                          ? "text-primary"
+                          : "text-muted-foreground group-hover:text-foreground",
+                      )}
+                    />
                     <span>{item.name}</span>
                   </Link>
                 );
@@ -230,7 +283,9 @@ export function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto bg-background">
-        <div className="container mx-auto px-4 tablet:px-8 py-16 tablet:py-6 max-w-7xl">{children}</div>
+        <div className="container mx-auto px-4 tablet:px-8 py-16 tablet:py-6 max-w-7xl">
+          {children}
+        </div>
       </main>
     </div>
   );

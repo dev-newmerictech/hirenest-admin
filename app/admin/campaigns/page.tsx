@@ -39,7 +39,7 @@ import {
   setFilterPlatform,
   setFilterStatus,
 } from "@/lib/store/campaignSlice";
-import { fetchActiveJobPosts } from "@/lib/store/jobPostsSlice";
+import { fetchAllJobPosts } from "@/lib/store/jobPostsSlice";
 import { Campaign } from "@/lib/api/campaigns";
 import { Plus, Link2, Eye, Sparkles } from "lucide-react";
 
@@ -58,7 +58,7 @@ export default function CampaignsPage() {
     filterStatus,
   } = useAppSelector((state) => state.campaigns);
 
-  const { activeJobPosts } = useAppSelector((state) => state.jobPosts);
+  const { allJobPosts } = useAppSelector((state) => state.jobPosts);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);
@@ -76,7 +76,7 @@ export default function CampaignsPage() {
   useEffect(() => {
     dispatch(fetchCampaignSummary());
     dispatch(fetchPlatforms());
-    dispatch(fetchActiveJobPosts());
+    dispatch(fetchAllJobPosts());
   }, [dispatch]);
 
   // Fetch campaigns on filter/page change
@@ -450,14 +450,14 @@ export default function CampaignsPage() {
             onOpenChange={setIsCampaignDialogOpen}
             campaign={campaignToEdit}
             platforms={platforms}
-            jobs={activeJobPosts}
+            jobs={allJobPosts}
           />
 
           <LinkGeneratorDialog
             open={isLinkGenOpen}
             onOpenChange={setIsLinkGenOpen}
             campaigns={campaigns}
-            jobs={activeJobPosts}
+            jobs={allJobPosts}
             defaultCampaign={selectedCampaignForLink}
           />
 
@@ -465,7 +465,7 @@ export default function CampaignsPage() {
             open={isDetailDrawerOpen}
             onOpenChange={setIsDetailDrawerOpen}
             campaign={selectedCampaignForDetail}
-            jobs={activeJobPosts}
+            jobs={allJobPosts}
             onEditCampaign={(camp) => {
               setIsDetailDrawerOpen(false);
               handleOpenEdit(camp);
