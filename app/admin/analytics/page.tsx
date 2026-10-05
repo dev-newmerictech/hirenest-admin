@@ -7,15 +7,37 @@ import { PageHeader } from "@/components/admin/page-header"
 import { Button } from "@/components/ui/button"
 import { Loader2, RefreshCw, ExternalLink, ShieldCheck, BarChart3, Maximize2, Minimize2 } from "lucide-react"
 
+const SITES = [
+  {
+    id: "app",
+    label: "App Portal (app.hirenest.ai)",
+    url: "https://analytics.hirenest.ai/share/hirenest-analytics",
+    description: "Logged-in job seekers, employers, applications, and AI interviews",
+  },
+  {
+    id: "marketing",
+    label: "Marketing Website (hirenest.ai)",
+    url: "https://analytics.hirenest.ai/share/hirenest-website",
+    description: "Public visitors, SEO, blogs, salary guides, and CTA conversions",
+  },
+]
+
 export default function AnalyticsPage() {
+  const [activeSite, setActiveSite] = useState<"app" | "marketing">("app")
   const [isLoading, setIsLoading] = useState(true)
   const [iframeKey, setIframeKey] = useState(0)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Configurable Umami public share or dashboard URL
-  const umamiUrl =
-    process.env.NEXT_PUBLIC_UMAMI_EMBED_URL || "https://analytics.hirenest.ai/share/hirenest-analytics"
+  const currentSite = SITES.find((s) => s.id === activeSite) || SITES[0]
+  const umamiUrl = currentSite.url
+
+  const handleSiteChange = (siteId: "app" | "marketing") => {
+    if (siteId === activeSite) return
+    setIsLoading(true)
+    setActiveSite(siteId)
+    setIframeKey((prev) => prev + 1)
+  }
 
   const handleRefresh = () => {
     setIsLoading(true)
@@ -107,6 +129,30 @@ export default function AnalyticsPage() {
                 Analytics Engine Live
               </span>
             </div>
+          </div>
+
+          {/* Site Selector Tabs */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/80 pb-3">
+            <div className="flex items-center gap-1.5 p-1 bg-muted/50 rounded-xl border border-border/60">
+              {SITES.map((site) => (
+                <button
+                  key={site.id}
+                  type="button"
+                  onClick={() => handleSiteChange(site.id as "app" | "marketing")}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    activeSite === site.id
+                      ? "bg-background text-foreground shadow-sm font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                  }`}
+                >
+                  <BarChart3 className={`h-3.5 w-3.5 ${activeSite === site.id ? "text-primary" : "text-muted-foreground"}`} />
+                  <span>{site.label}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground hidden sm:block">
+              {currentSite.description}
+            </p>
           </div>
 
           {/* Embedded Full Dashboard Container */}
