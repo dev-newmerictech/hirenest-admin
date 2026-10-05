@@ -1,40 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { DetailDrawer } from "@/components/admin/detail-drawer";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { FunnelChart } from "./funnel-chart";
-import { Campaign, CampaignAnalytics } from "@/lib/api/campaigns";
+import { SearchableJobSelect } from "./searchable-job-select";
+import { Campaign } from "@/lib/api/campaigns";
 import { Job } from "@/lib/types";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
-  fetchCampaignAnalyticsThunk,
   toggleJobBindingThunk,
   bindJobThunk,
+  updateCampaignThunk,
   fetchCampaign,
 } from "@/lib/store/campaignSlice";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Calendar,
   Layers,
-  Link2,
   Copy,
   Check,
   Plus,
   ExternalLink,
   Edit,
-  Code2,
+  Briefcase,
+  Building2,
+  Sparkles,
+  Link2,
 } from "lucide-react";
 
 interface CampaignDetailDrawerProps {
@@ -43,7 +35,6 @@ interface CampaignDetailDrawerProps {
   campaign: Campaign | null;
   jobs: Job[];
   onEditCampaign: (campaign: Campaign) => void;
-  onGenerateLink: (campaign: Campaign, jobId?: string) => void;
 }
 
 export function CampaignDetailDrawer({
@@ -52,24 +43,24 @@ export function CampaignDetailDrawer({
   campaign,
   jobs,
   onEditCampaign,
-  onGenerateLink,
 }: CampaignDetailDrawerProps) {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
-  const { selectedCampaignAnalytics, isLoadingAnalytics, isMutating } =
-    useAppSelector((state) => state.campaigns);
+  const { selectedCampaign, isMutating } = useAppSelector(
+    (state) => state.campaigns,
+  );
 
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [selectedJobToBind, setSelectedJobToBind] = useState<string>("");
   const [isBinding, setIsBinding] = useState(false);
 
-  useEffect(() => {
-    if (campaign?.id && open) {
-      dispatch(fetchCampaignAnalyticsThunk(campaign.id));
-    }
-  }, [campaign?.id, open, dispatch]);
+  // Use the reactive selectedCampaign from Redux if available for instantaneous state updates
+  const activeCampaign =
+    (selectedCampaign && selectedCampaign.id === campaign?.id
+      ? selectedCampaign
+      : campaign) || campaign;
 
-  if (!campaign) return null;
+  if (!activeCampaign) return null;
 
   const handleCopy = async (url: string) => {
     try {
@@ -77,7 +68,7 @@ export function CampaignDetailDrawer({
       setCopiedUrl(url);
       setTimeout(() => setCopiedUrl(null), 2000);
       toast({
-        title: "Copied",
+        title: "Copied!",
         description: "Job tracking URL copied to clipboard.",
       });
     } catch {
@@ -92,17 +83,38 @@ export function CampaignDetailDrawer({
   const handleToggleBinding = async (jobId: string, currentStatus: boolean) => {
     try {
       await dispatch(
-        toggleJobBindingThunk({ campaignId: campaign.id, jobId }),
+        toggleJobBindingThunk({ campaignId: activeCampaign.id, jobId }),
       ).unwrap();
       toast({
         title: "Binding Updated",
         description: `Job route is now ${!currentStatus ? "Active" : "Disabled"}.`,
       });
-      dispatch(fetchCampaign(campaign.id));
+      dispatch(fetchCampaign(activeCampaign.id));
     } catch (err: any) {
       toast({
         title: "Update Failed",
         description: err || "Failed to toggle job binding",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleCampaignStatus = async (newActive: boolean) => {
+    try {
+      await dispatch(
+        updateCampaignThunk({
+          id: activeCampaign.id,
+          payload: { status: newActive ? "active" : "paused" },
+        }),
+      ).unwrap();
+      toast({
+        title: "Campaign Status Updated",
+        description: `Campaign is now ${newActive ? "Active" : "Paused"}.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Update Failed",
+        description: err || "Failed to update campaign status",
         variant: "destructive",
       });
     }
@@ -114,17 +126,18 @@ export function CampaignDetailDrawer({
     try {
       await dispatch(
         bindJobThunk({
-          campaignId: campaign.id,
+          campaignId: activeCampaign.id,
           payload: { jobPostId: selectedJobToBind },
         }),
       ).unwrap();
 
       toast({
-        title: "Job Bound",
-        description: "Job successfully attached to this campaign.",
+        title: "Job Bound Successfully",
+        description: "Job attached and live tracking link generated.",
       });
       setSelectedJobToBind("");
-      dispatch(fetchCampaign(campaign.id));
+      // Refresh to guarantee sync
+      dispatch(fetchCampaign(activeCampaign.id));
     } catch (err: any) {
       toast({
         title: "Binding Failed",
@@ -136,240 +149,212 @@ export function CampaignDetailDrawer({
     }
   };
 
+  // Helper to resolve job metadata from jobs array or binding object
+  const getJobDetails = (jobPostId: any) => {
+    const rawId =
+      typeof jobPostId === "object" && jobPostId !== null
+        ? jobPostId._id || jobPostId.id
+        : String(jobPostId);
+    const found = jobs.find((j) => j.id === rawId);
+    return {
+      id: rawId,
+      title:
+        found?.title ||
+        (typeof jobPostId === "object" ? jobPostId.title : null) ||
+        `Job Post #${rawId?.slice(-6)}`,
+      companyName: found?.companyName || "HireNest",
+      location: found?.location || "Remote",
+    };
+  };
+
   return (
-    <DetailDrawer open={open} onOpenChange={onOpenChange} title={campaign.name}>
-      <div className="space-y-6 pb-6">
-        {/* Header Bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-lg bg-muted/40 border border-border">
-          <div className="space-y-1">
+    <DetailDrawer
+      open={open}
+      onOpenChange={onOpenChange}
+      title={activeCampaign.name}
+    >
+      <div className="space-y-6 pb-6 w-full max-w-full overflow-hidden">
+        {/* Campaign Identity & Status Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-lg bg-muted/40 border border-border w-full">
+          <div className="space-y-1 min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {campaign.platform}
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {activeCampaign.platform}
               </span>
               <StatusBadge
-                status={campaign.status === "active"}
+                status={activeCampaign.status === "active"}
                 activeLabel="Active"
-                inactiveLabel={campaign.status}
+                inactiveLabel={activeCampaign.status}
               />
             </div>
-            <div className="text-sm font-mono text-foreground font-medium">
-              Code: {campaign.campaignCode}
+            <div className="text-sm font-mono text-foreground font-semibold truncate">
+              Code: {activeCampaign.campaignCode}
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 shrink-0">
+            <div className="flex items-center gap-2 pr-2 border-r border-border">
+              <span className="text-xs text-muted-foreground">Active</span>
+              <Switch
+                checked={activeCampaign.status === "active"}
+                onCheckedChange={handleToggleCampaignStatus}
+                disabled={isMutating}
+              />
+            </div>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => onEditCampaign(campaign)}
-              className="gap-1 text-xs"
+              onClick={() => onEditCampaign(activeCampaign)}
+              className="gap-1.5 text-xs h-8 shrink-0"
             >
               <Edit className="h-3.5 w-3.5" />
               Edit
             </Button>
-            <Button
-              size="sm"
-              onClick={() => onGenerateLink(campaign)}
-              className="gap-1 text-xs"
-            >
-              <Link2 className="h-3.5 w-3.5" />
-              Generate Link
-            </Button>
           </div>
         </div>
 
-        {/* Schedule & Metadata */}
-        <div className="grid grid-cols-2 gap-3 text-xs">
-          <div className="p-3 rounded-lg border border-border bg-card">
-            <span className="text-muted-foreground flex items-center gap-1.5 mb-1">
-              <Calendar className="h-3.5 w-3.5" />
-              Start Date
-            </span>
-            <span className="font-medium text-foreground">
-              {campaign.startDate
-                ? new Date(campaign.startDate).toLocaleDateString()
-                : "Immediate"}
-            </span>
-          </div>
-          <div className="p-3 rounded-lg border border-border bg-card">
-            <span className="text-muted-foreground flex items-center gap-1.5 mb-1">
-              <Calendar className="h-3.5 w-3.5" />
-              End Date
-            </span>
-            <span className="font-medium text-foreground">
-              {campaign.endDate
-                ? new Date(campaign.endDate).toLocaleDateString()
-                : "Ongoing"}
-            </span>
-          </div>
-        </div>
-
-        {/* Regex Patterns */}
-        {campaign.patterns && campaign.patterns.length > 0 && (
-          <div className="space-y-1.5 p-3 rounded-lg border border-border bg-card">
-            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Code2 className="h-3.5 w-3.5 text-primary" />
-              UTM Regex Patterns
-            </span>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {campaign.patterns.map((p, idx) => (
-                <span
-                  key={idx}
-                  className="px-2 py-0.5 rounded bg-muted font-mono text-[11px] text-foreground"
-                >
-                  {p}
-                </span>
-              ))}
+        {/* HERO SECTION: Job Linkage & Route Manager */}
+        <div className="space-y-4 w-full min-w-0">
+          <div className="flex items-center justify-between">
+            <div className="min-w-0">
+              <h4 className="text-sm font-bold text-foreground flex items-center gap-2">
+                <Layers className="h-4 w-4 text-primary shrink-0" />
+                Bound Job Postings ({activeCampaign.jobBindings?.length ?? 0})
+              </h4>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Each bound job generates an authenticated fast-track link
+                pointing directly to app.hirenest.ai
+              </p>
             </div>
           </div>
-        )}
 
-        {/* Funnel Chart */}
-        <FunnelChart
-          impressions={
-            selectedCampaignAnalytics?.impressions ?? campaign.impressionsCount
-          }
-          leads={selectedCampaignAnalytics?.leads ?? campaign.leadsCount}
-          applications={
-            selectedCampaignAnalytics?.applications ??
-            campaign.applicationsCount
-          }
-          dailyTrends={selectedCampaignAnalytics?.dailyFunnelTrends}
-          title="Campaign Conversion Funnel"
-        />
-
-        {/* Bound Jobs Section */}
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" />
-              Bound Job Postings ({campaign.jobBindings?.length ?? 0})
-            </h4>
+          {/* Attach Job Searchable Bar */}
+          <div className="p-3.5 rounded-lg border border-border bg-card space-y-3 w-full min-w-0">
+            <label className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5 text-primary shrink-0" />
+              Attach Another Job to this Campaign
+            </label>
+            <div className="flex flex-col sm:flex-row gap-2 w-full min-w-0">
+              <div className="flex-1 min-w-0">
+                <SearchableJobSelect
+                  jobs={jobs}
+                  value={selectedJobToBind}
+                  onChange={setSelectedJobToBind}
+                  placeholder="Search and select job posting to bind..."
+                />
+              </div>
+              <Button
+                onClick={handleBindJob}
+                disabled={!selectedJobToBind || isBinding}
+                size="sm"
+                className="gap-1.5 text-xs h-10 sm:h-auto px-4 shrink-0"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                {isBinding ? "Binding..." : "Bind Job"}
+              </Button>
+            </div>
           </div>
 
-          {/* Add Job Binding inline selector */}
-          <div className="flex items-center gap-2">
-            <Select
-              value={selectedJobToBind}
-              onValueChange={setSelectedJobToBind}
-            >
-              <SelectTrigger className="text-xs h-9">
-                <SelectValue placeholder="Attach another job to campaign..." />
-              </SelectTrigger>
-              <SelectContent>
-                {jobs
-                  .filter((j) => {
-                    const alreadyBound = campaign.jobBindings?.some((b) => {
-                      const id =
-                        typeof b.jobPostId === "string"
-                          ? b.jobPostId
-                          : b.jobPostId?._id;
-                      return id === j.id;
-                    });
-                    return !alreadyBound;
-                  })
-                  .map((j) => (
-                    <SelectItem key={j.id} value={j.id}>
-                      {j.title} {j.companyName ? `(${j.companyName})` : ""}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <Button
-              size="sm"
-              onClick={handleBindJob}
-              disabled={!selectedJobToBind || isBinding}
-              className="h-9 gap-1 text-xs shrink-0"
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Bind Job
-            </Button>
-          </div>
-
-          {/* Job Bindings List */}
-          <div className="space-y-2 pt-1">
-            {campaign.jobBindings && campaign.jobBindings.length > 0 ? (
-              campaign.jobBindings.map((binding, idx) => {
-                const jobId =
-                  typeof binding.jobPostId === "string"
-                    ? binding.jobPostId
-                    : binding.jobPostId?._id;
-                const matchingJob = jobs.find((j) => j.id === jobId);
-                const jobTitle =
-                  matchingJob?.title ||
-                  (typeof binding.jobPostId === "object"
-                    ? binding.jobPostId?.title
-                    : null) ||
-                  `Job #${jobId.slice(-6)}`;
+          {/* Bound Jobs List */}
+          <div className="space-y-2.5 w-full min-w-0">
+            {!activeCampaign.jobBindings ||
+            activeCampaign.jobBindings.length === 0 ? (
+              <div className="p-8 text-center rounded-lg border border-dashed border-border bg-muted/20">
+                <Briefcase className="h-8 w-8 text-muted-foreground mx-auto mb-2 opacity-50" />
+                <div className="text-xs font-semibold text-foreground">
+                  No Job Postings Bound Yet
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  Select a job above to generate this campaign's tracking route.
+                </div>
+              </div>
+            ) : (
+              activeCampaign.jobBindings.map((binding, idx) => {
+                const jobMeta = getJobDetails(binding.jobPostId);
+                const rawUrl = binding.generatedUrl?.startsWith("http")
+                  ? binding.generatedUrl
+                  : `https://app.hirenest.ai${binding.generatedUrl || `/jobs/${jobMeta.id}?utm_source=${activeCampaign.platform}&utm_campaign=${activeCampaign.campaignCode}&utm_medium=fast-track`}`;
 
                 return (
                   <div
-                    key={idx}
-                    className="p-3 rounded-lg border border-border bg-card space-y-2"
+                    key={binding.jobPostId ? String(jobMeta.id) : idx}
+                    className="p-3 rounded-lg border border-border bg-card space-y-2 hover:border-primary/40 transition-colors w-full min-w-0 overflow-hidden"
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="space-y-0.5">
-                        <span className="text-xs font-semibold text-foreground block">
-                          {jobTitle}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground font-mono">
-                          ID: {jobId}
-                        </span>
+                    <div className="flex items-start justify-between gap-3 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-semibold text-xs text-foreground truncate">
+                            {jobMeta.title}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                            {jobMeta.companyName}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground flex items-center gap-2 mt-0.5 min-w-0">
+                          <span className="flex items-center gap-1 min-w-0">
+                            <Building2 className="h-3 w-3 shrink-0" />
+                            <span className="truncate">{jobMeta.location}</span>
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[11px] text-muted-foreground">
-                          {binding.isActive ? "Active" : "Disabled"}
+
+                      {/* Route On/Off Switch */}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[11px] text-muted-foreground font-mono">
+                          {binding.isActive ? "Route ON" : "Paused"}
                         </span>
                         <Switch
                           checked={binding.isActive}
                           onCheckedChange={() =>
-                            handleToggleBinding(jobId, binding.isActive)
+                            handleToggleBinding(jobMeta.id, binding.isActive)
                           }
                         />
                       </div>
                     </div>
 
-                    {binding.generatedUrl && (
-                      <div className="flex items-center gap-2 pt-1">
-                        <Input
-                          readOnly
-                          value={binding.generatedUrl}
-                          className="font-mono text-[11px] h-7 bg-muted/30"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 shrink-0"
-                          onClick={() => handleCopy(binding.generatedUrl)}
-                          title="Copy Link"
-                        >
-                          {copiedUrl === binding.generatedUrl ? (
-                            <Check className="h-3.5 w-3.5 text-green-600" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 shrink-0"
-                          onClick={() =>
-                            window.open(binding.generatedUrl, "_blank")
-                          }
-                          title="Open URL"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </Button>
+                    {/* URL bar with 1-click copy & test gate */}
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-border/50 w-full min-w-0">
+                      <div
+                        className="flex-1 min-w-0 font-mono text-[11px] bg-muted/50 px-2.5 py-1.5 rounded truncate select-all text-foreground border border-border/50"
+                        title={rawUrl}
+                      >
+                        {rawUrl}
                       </div>
-                    )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCopy(rawUrl)}
+                        className="h-8 px-2.5 gap-1 shrink-0 text-xs"
+                      >
+                        {copiedUrl === rawUrl ? (
+                          <>
+                            <Check className="h-3 w-3 text-green-600" />
+                            <span className="text-green-600 text-[11px]">
+                              Copied
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-3 w-3" />
+                            <span className="text-[11px]">Copy</span>
+                          </>
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          window.open(rawUrl, "_blank", "noopener,noreferrer")
+                        }
+                        className="h-8 px-2 shrink-0"
+                        title="Test gate in new window"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                      </Button>
+                    </div>
                   </div>
                 );
               })
-            ) : (
-              <div className="p-4 rounded-lg border border-dashed border-border text-center text-xs text-muted-foreground">
-                No jobs currently bound. Any traffic arriving with this campaign
-                code will default to the primary job in the link.
-              </div>
             )}
           </div>
         </div>

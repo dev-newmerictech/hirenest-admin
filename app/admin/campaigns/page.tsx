@@ -27,14 +27,19 @@ import {
 import { CampaignStats } from "@/components/admin/campaigns/campaign-stats";
 import { PlatformToggles } from "@/components/admin/campaigns/platform-toggles";
 import { CampaignDialog } from "@/components/admin/campaigns/campaign-dialog";
+import { CreateCampaignDrawer } from "@/components/admin/campaigns/create-campaign-drawer";
+import { CampaignSuccessDialog } from "@/components/admin/campaigns/campaign-success-dialog";
 import { LinkGeneratorDialog } from "@/components/admin/campaigns/link-generator-dialog";
 import { CampaignDetailDrawer } from "@/components/admin/campaigns/campaign-detail-drawer";
+import { Switch } from "@/components/ui/switch";
+import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
   fetchCampaignSummary,
   fetchPlatforms,
   fetchCampaigns,
   fetchCampaign,
+  updateCampaignThunk,
   setSearchQuery,
   setFilterPlatform,
   setFilterStatus,
@@ -45,6 +50,7 @@ import { Plus, Link2, Eye, Sparkles } from "lucide-react";
 
 export default function CampaignsPage() {
   const dispatch = useAppDispatch();
+  const { toast } = useToast();
   const {
     summary,
     platforms,
@@ -62,7 +68,12 @@ export default function CampaignsPage() {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [isCampaignDialogOpen, setIsCampaignDialogOpen] = useState(false);
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [campaignToEdit, setCampaignToEdit] = useState<Campaign | null>(null);
+  const [successDialogData, setSuccessDialogData] = useState<{
+    campaign: Campaign;
+    trackingUrl: string;
+  } | null>(null);
 
   const [isLinkGenOpen, setIsLinkGenOpen] = useState(false);
   const [selectedCampaignForLink, setSelectedCampaignForLink] =
@@ -141,13 +152,36 @@ export default function CampaignsPage() {
   };
 
   const handleOpenCreate = () => {
-    setCampaignToEdit(null);
-    setIsCampaignDialogOpen(true);
+    setIsCreateDrawerOpen(true);
   };
 
   const handleOpenLinkGen = (campaign: Campaign) => {
     setSelectedCampaignForLink(campaign);
     setIsLinkGenOpen(true);
+  };
+
+  const handleToggleCampaignStatus = async (
+    campaign: Campaign,
+    newActive: boolean,
+  ) => {
+    try {
+      await dispatch(
+        updateCampaignThunk({
+          id: campaign.id,
+          payload: { status: newActive ? "active" : "paused" },
+        }),
+      ).unwrap();
+      toast({
+        title: "Status Updated",
+        description: `Campaign "${campaign.name}" is now ${newActive ? "Active" : "Paused"}.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Update Failed",
+        description: err || "Failed to toggle campaign status",
+        variant: "destructive",
+      });
+    }
   };
 
   const columns: Column<Campaign>[] = [
@@ -176,11 +210,20 @@ export default function CampaignsPage() {
       key: "status",
       label: "Status",
       render: (item) => (
-        <StatusBadge
-          status={item.status === "active"}
-          activeLabel="Active"
-          inactiveLabel={item.status}
-        />
+        <div
+          className="flex items-center gap-2"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <Switch
+            checked={item.status === "active"}
+            onCheckedChange={(checked) =>
+              handleToggleCampaignStatus(item, checked)
+            }
+          />
+          <span className="text-xs font-medium capitalize">
+            {item.status === "active" ? "Active" : "Paused"}
+          </span>
+        </div>
       ),
     },
     {
@@ -275,17 +318,6 @@ export default function CampaignsPage() {
               description="Manage fast-track acquisition campaigns, platform gating switches, and candidate conversion funnels"
             />
             <div className="flex items-center gap-2 self-stretch sm:self-auto">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setSelectedCampaignForLink(null);
-                  setIsLinkGenOpen(true);
-                }}
-                className="gap-1.5 text-xs h-9"
-              >
-                <Sparkles className="h-4 w-4 text-primary" />
-                Generate Link
-              </Button>
               <Button
                 onClick={handleOpenCreate}
                 className="gap-1.5 text-xs h-9"
@@ -445,6 +477,27 @@ export default function CampaignsPage() {
           </div>
 
           {/* Dialogs & Drawers */}
+          <CreateCampaignDrawer
+            open={isCreateDrawerOpen}
+            onOpenChange={setIsCreateDrawerOpen}
+            platforms={platforms}
+            jobs={allJobPosts}
+            onSuccess={(data) => {
+              setSuccessDialogData(data);
+            }}
+          />
+
+          {successDialogData && (
+            <CampaignSuccessDialog
+              open={!!successDialogData}
+              onOpenChange={(open) => !open && setSuccessDialogData(null)}
+              campaignName={successDialogData.campaign.name}
+              platform={successDialogData.campaign.platform}
+              campaignCode={successDialogData.campaign.campaignCode}
+              trackingUrl={successDialogData.trackingUrl}
+            />
+          )}
+
           <CampaignDialog
             open={isCampaignDialogOpen}
             onOpenChange={setIsCampaignDialogOpen}
@@ -469,9 +522,6 @@ export default function CampaignsPage() {
             onEditCampaign={(camp) => {
               setIsDetailDrawerOpen(false);
               handleOpenEdit(camp);
-            }}
-            onGenerateLink={(camp) => {
-              handleOpenLinkGen(camp);
             }}
           />
         </div>

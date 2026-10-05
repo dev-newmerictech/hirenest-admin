@@ -87,6 +87,7 @@ export function LinkGeneratorDialog({
           platform: selectedCampaign.platform,
           campaignCode: selectedCampaign.campaignCode,
           jobId: selectedJobId,
+          baseUrl: "https://app.hirenest.ai",
           utmMedium: utmMedium.trim() || undefined,
           utmContent: utmContent.trim() || undefined,
         }),
