@@ -17,7 +17,7 @@ export interface LoginResponse {
     email: string;
     firstName: string;
     lastName?: string;
-    adminRole: 'super_admin' | 'marketing';
+    adminRole: 'super_admin' | 'operations' | 'marketing';
   };
 }
 
@@ -78,9 +78,14 @@ export const authApi = {
 
   logout: async () => {
     try {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
       await fetch(`${API_URL}/admin/auth/logout`, {
         method: 'POST',
         credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
     } catch {
       // Non-fatal if server logout call fails
@@ -89,6 +94,7 @@ export const authApi = {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('admin_session');
     }
   },
 

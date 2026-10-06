@@ -9,7 +9,7 @@ interface User {
   email: string;
   firstName: string;
   lastName?: string;
-  adminRole: 'super_admin' | 'marketing';
+  adminRole: 'super_admin' | 'operations' | 'marketing';
 }
 
 interface AuthState {
@@ -95,7 +95,6 @@ const authSlice = createSlice({
     
     // Action to logout
     logout: (state) => {
-      authApi.logout();
       clearAllAdminCache();
       state.user = null;
       state.token = null;

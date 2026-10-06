@@ -5,7 +5,7 @@ export interface AuthSession {
     id: string
     email: string
     role: "admin"
-    adminRole: "super_admin" | "marketing"
+    adminRole: "super_admin" | "operations" | "marketing"
   }
   expiresAt: string
 }

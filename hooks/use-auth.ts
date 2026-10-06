@@ -2,6 +2,8 @@
 
 import { useAppSelector, useAppDispatch } from '@/lib/store/hooks';
 import { logout } from '@/lib/store/authSlice';
+import { authApi } from '@/lib/api/auth';
+import { clearAuthSession } from '@/lib/auth';
 import { useRouter } from 'next/navigation';
 
 export function useAuth() {
@@ -11,7 +13,13 @@ export function useAuth() {
     (state) => state.auth
   );
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
+    clearAuthSession();
     dispatch(logout());
     router.push('/admin/login');
   };
