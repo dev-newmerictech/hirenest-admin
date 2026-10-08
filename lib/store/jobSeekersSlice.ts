@@ -87,8 +87,13 @@ export const syncJobSeekers = createAsyncThunk<
   'jobSeekers/sync',
   async (lastFetchedAt, { rejectWithValue, getState }) => {
     try {
-      // 1. Convert timestamp to ISO string for backend
-      const since = new Date(lastFetchedAt).toISOString();
+      // 1. Determine since timestamp: use newest cached record's registration date with 5-min safety buffer, or fall back to lastFetchedAt
+      const state = getState() as { jobSeekers: JobSeekersState };
+      const currentRecordsInState = state.jobSeekers?.allJobSeekers || [];
+      const newestRecord = currentRecordsInState[0];
+      const since = newestRecord?.registrationDate
+        ? new Date(new Date(newestRecord.registrationDate).getTime() - 5 * 60000).toISOString()
+        : new Date(lastFetchedAt).toISOString();
       
       // 2. Fetch delta from API
       const response = await jobSeekersApi.syncJobSeekers(since);

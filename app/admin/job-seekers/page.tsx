@@ -63,19 +63,23 @@ export default function JobSeekersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
 
-  // Load from IndexedDB cache on mount, fetch from API if no cache
+  // Load from IndexedDB cache on mount, fetch from API if no cache or if cache is older than 15 mins
   useEffect(() => {
     const initData = async () => {
-      if (allJobSeekers.length > 0 && lastFetchedAt) return // Already have data in Redux
-
       const cacheResult = await dispatch(loadJobSeekersFromCache()).unwrap()
       if (!cacheResult) {
         // No cache — fetch from API
         dispatch(fetchAllJobSeekers())
+      } else {
+        // Cache exists — if older than 15 minutes, refresh in background
+        const FIFTEEN_MINUTES = 15 * 60 * 1000
+        if (Date.now() - cacheResult.timestamp > FIFTEEN_MINUTES) {
+          dispatch(fetchAllJobSeekers())
+        }
       }
     }
     initData()
-  }, [dispatch, allJobSeekers.length, lastFetchedAt])
+  }, [dispatch])
 
   // Show error toast
   useEffect(() => {
@@ -136,29 +140,21 @@ export default function JobSeekersPage() {
     return filteredJobSeekers.slice(start, start + ITEMS_PER_PAGE)
   }, [filteredJobSeekers, currentPage])
 
-  // Refresh — incrementally sync or force re-fetch
+  // Refresh — force fresh fetch from server
   const handleRefresh = useCallback(async () => {
     setIsSyncing(true)
     try {
-      if (lastFetchedAt) {
-        await dispatch(syncJobSeekers(lastFetchedAt)).unwrap()
-        toast({
-          title: "Delta Sync Complete",
-          description: `Successfully fetched incremental updates.`,
-        })
-      } else {
-        await dispatch(fetchAllJobSeekers()).unwrap()
-        toast({
-          title: "Full Sync Complete",
-          description: `Successfully loaded all job seekers.`,
-        })
-      }
+      const result = await dispatch(fetchAllJobSeekers()).unwrap()
+      toast({
+        title: "Sync Complete",
+        description: `Loaded all ${result.jobSeekers.length} latest job seekers from database.`,
+      })
     } catch {
       // Error is handled by the slice
     } finally {
       setIsSyncing(false)
     }
-  }, [dispatch, toast, lastFetchedAt])
+  }, [dispatch, toast])
 
   // Export to Excel — from in-memory data (no API call)
   const handleExport = useCallback(() => {
