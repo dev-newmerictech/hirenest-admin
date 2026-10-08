@@ -1,6 +1,6 @@
 // Authentication API service with 2FA & session management
 
-import { API_URL } from './config';
+import { getApiBaseUrl } from './config';
 
 export interface LoginRequest {
   email: string;
@@ -41,7 +41,7 @@ export interface TwoFactorVerifyResponse {
 
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<LoginResponse> => {
-    const response = await fetch(`${API_URL}/admin/auth/login`, {
+    const response = await fetch(`${getApiBaseUrl()}/admin/auth/login`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -59,7 +59,7 @@ export const authApi = {
   },
 
   login2FA: async (data: TwoFactorLoginRequest): Promise<LoginResponse> => {
-    const response = await fetch(`${API_URL}/admin/auth/login/2fa`, {
+    const response = await fetch(`${getApiBaseUrl()}/admin/auth/login/2fa`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -79,7 +79,7 @@ export const authApi = {
   logout: async () => {
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-      await fetch(`${API_URL}/admin/auth/logout`, {
+      await fetch(`${getApiBaseUrl()}/admin/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: {
@@ -100,7 +100,7 @@ export const authApi = {
 
   get2FAStatus: async (): Promise<{ mfaEnabled: boolean }> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const response = await fetch(`${API_URL}/admin/auth/2fa/status`, {
+    const response = await fetch(`${getApiBaseUrl()}/admin/auth/2fa/status`, {
       method: 'GET',
       credentials: 'include',
       headers: {
@@ -118,7 +118,7 @@ export const authApi = {
 
   setup2FA: async (): Promise<TwoFactorSetupResponse> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const response = await fetch(`${API_URL}/admin/auth/2fa/setup`, {
+    const response = await fetch(`${getApiBaseUrl()}/admin/auth/2fa/setup`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -137,7 +137,7 @@ export const authApi = {
 
   verifyAndEnable2FA: async (otpToken: string): Promise<TwoFactorVerifyResponse> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const response = await fetch(`${API_URL}/admin/auth/2fa/verify`, {
+    const response = await fetch(`${getApiBaseUrl()}/admin/auth/2fa/verify`, {
       method: 'POST',
       credentials: 'include',
       headers: {
@@ -157,7 +157,7 @@ export const authApi = {
 
   disable2FA: async (password: string, otpToken?: string): Promise<{ message: string; mfaEnabled: boolean }> => {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-    const response = await fetch(`${API_URL}/admin/auth/2fa/disable`, {
+    const response = await fetch(`${getApiBaseUrl()}/admin/auth/2fa/disable`, {
       method: 'POST',
       credentials: 'include',
       headers: {
