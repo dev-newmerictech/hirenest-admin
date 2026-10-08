@@ -7,14 +7,15 @@ import {
   JobSeekersListResponse,
   JobSeekerDetailResponse,
   transformJobSeeker,
+  transformDetailedJobSeeker,
   extractJobSeekerFromDetailResponse,
 } from '../api/jobSeekers';
-import { JobSeeker } from '../types';
+import { JobSeeker, DetailedJobSeeker } from '../types';
 import { getCachedData, setCachedData, CACHE_KEYS } from '../cache/adminCache';
 
 interface JobSeekersState {
   allJobSeekers: JobSeeker[];     // ALL job seekers (from IndexedDB or API)
-  selectedJobSeeker: JobSeeker | null;
+  selectedJobSeeker: DetailedJobSeeker | null;
   isLoading: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
@@ -291,7 +292,7 @@ const jobSeekersSlice = createSlice({
       .addCase(fetchJobSeekerProfile.fulfilled, (state, action: PayloadAction<JobSeekerDetailResponse>) => {
         state.isLoading = false;
         const jobSeeker = extractJobSeekerFromDetailResponse(action.payload.data);
-        state.selectedJobSeeker = transformJobSeeker(jobSeeker);
+        state.selectedJobSeeker = transformDetailedJobSeeker(jobSeeker);
         state.error = null;
       })
       .addCase(fetchJobSeekerProfile.rejected, (state, action) => {

@@ -1,7 +1,7 @@
 // Companies (Job Providers) API functions
 
 import { api } from './client';
-import { Company, CompanyAPIResponse } from '../types';
+import { Company, CompanyAPIResponse, DetailedCompany } from '../types';
 
 export interface CompaniesListResponse {
   status: string;
@@ -18,7 +18,7 @@ export interface CompaniesListResponse {
 
 export interface CompanyDetailResponse {
   status: string;
-  data: CompanyAPIResponse;
+  data: CompanyAPIResponse | { jobProvider: CompanyAPIResponse } | any;
 }
 
 export interface CompanySyncResponse {
@@ -49,6 +49,36 @@ export function transformCompany(apiCompany: CompanyAPIResponse): Company {
     isDocumentVerified: apiCompany.isDocumentVerified,
     acquisitionSource: apiCompany.createdBy?.acquisitionSource,
     isOnboarded: apiCompany.isOnboarded,
+  };
+}
+
+export function transformDetailedCompany(data: any): DetailedCompany {
+  const base = transformCompany(data);
+  const createdBy = typeof data.createdBy === 'object' ? data.createdBy : null;
+  return {
+    ...base,
+    profilePicture: data.profilePicture,
+    bio: data.bio,
+    ownerName: data.ownerName,
+    phone: data.mobile && data.mobile.mobileNumber ? `+${data.mobile.countryCode || 91} ${data.mobile.mobileNumber}` : undefined,
+    addressLine1: data.address?.addressLine1,
+    addressLine2: data.address?.addressLine2,
+    city: data.address?.city,
+    state: data.address?.state,
+    country: data.address?.country,
+    postalCode: data.address?.postalCode,
+    teamMembers: data.teamMembers || [],
+    documents: data.documents || [],
+    preferences: data.preferences,
+    socialLinks: data.socialLinks || [],
+    jobPostsCount: data.jobPostsCount ?? 0,
+    createdByDetails: createdBy ? {
+      firstName: createdBy.firstName,
+      lastName: createdBy.lastName,
+      email: createdBy.email,
+      provider: createdBy.provider,
+      createdAt: createdBy.createdAt,
+    } : undefined,
   };
 }
 

@@ -64,18 +64,21 @@ export default function CompaniesPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
 
-  // Load from IndexedDB cache on mount, fetch from API if no cache
+  // Load from IndexedDB cache on mount, fetch from API if no cache, empty, or older than 15 mins
   useEffect(() => {
     const initData = async () => {
-      if (allCompanies.length > 0 && lastFetchedAt) return
-
       const cacheResult = await dispatch(loadCompaniesFromCache()).unwrap()
-      if (!cacheResult) {
+      if (!cacheResult || !cacheResult.companies || cacheResult.companies.length === 0) {
         dispatch(fetchAllCompanies())
+      } else {
+        const FIFTEEN_MINUTES = 15 * 60 * 1000
+        if (Date.now() - cacheResult.timestamp > FIFTEEN_MINUTES) {
+          dispatch(fetchAllCompanies())
+        }
       }
     }
     initData()
-  }, [dispatch, allCompanies.length, lastFetchedAt])
+  }, [dispatch])
 
   // Show error toast
   useEffect(() => {
@@ -91,7 +94,11 @@ export default function CompaniesPage() {
 
   // Filter companies based on search query (client-side)
   const filteredCompanies = useMemo(() => {
-    const onboardedCompanies = allCompanies.filter(company => company.isOnboarded)
+    const onboardedCompanies = [...allCompanies].sort((a, b) => {
+      const timeA = a.registrationDate ? new Date(a.registrationDate).getTime() : 0
+      const timeB = b.registrationDate ? new Date(b.registrationDate).getTime() : 0
+      return timeB - timeA
+    })
     if (!searchQuery.trim()) return onboardedCompanies
     
     const query = searchQuery.toLowerCase()
@@ -111,29 +118,21 @@ export default function CompaniesPage() {
     return filteredCompanies.slice(start, start + ITEMS_PER_PAGE)
   }, [filteredCompanies, currentPage])
 
-  // Refresh — incrementally sync or force re-fetch
+  // Refresh — force fresh fetch from server
   const handleRefresh = useCallback(async () => {
     setIsSyncing(true)
     try {
-      if (lastFetchedAt) {
-        await dispatch(syncCompanies(lastFetchedAt)).unwrap()
-        toast({
-          title: "Delta Sync Complete",
-          description: `Successfully fetched incremental updates.`,
-        })
-      } else {
-        await dispatch(fetchAllCompanies()).unwrap()
-        toast({
-          title: "Full Sync Complete",
-          description: `Successfully loaded all companies.`,
-        })
-      }
+      const result = await dispatch(fetchAllCompanies()).unwrap()
+      toast({
+        title: "Sync Complete",
+        description: `Loaded all ${result.companies.length} companies from database.`,
+      })
     } catch {
       // Error handled by slice
     } finally {
       setIsSyncing(false)
     }
-  }, [dispatch, toast, lastFetchedAt])
+  }, [dispatch, toast])
 
   // Export to Excel — from in-memory data
   const handleExport = useCallback(() => {
@@ -299,7 +298,7 @@ export default function CompaniesPage() {
       label: "Company Name",
       render: (item) => (
         <button
-          onClick={() => handleView(item)}
+          onClick={() => item.id && router.push(`/admin/companies/${item.id}`)}
           className="text-foreground hover:text-primary transition-colors font-medium text-left"
         >
           {item.name}
@@ -450,7 +449,12 @@ export default function CompaniesPage() {
             <div className="h-64 rounded-lg bg-muted animate-pulse" />
           ) : (
             <>
-              <DataTable columns={columns} data={paginatedCompanies} emptyMessage="No companies found" />
+              <DataTable 
+                columns={columns} 
+                data={paginatedCompanies} 
+                onRowClick={(item) => item.id && router.push(`/admin/companies/${item.id}`)}
+                emptyMessage="No companies found" 
+              />
               
               {/* Client-side Pagination */}
               {totalPages > 1 && !searchQuery && (
