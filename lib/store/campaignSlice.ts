@@ -11,6 +11,8 @@ import {
   UpdateCampaignDTO,
   BindJobDTO,
   GenerateLinkDTO,
+  IGlobalAnalyticsOverviewResponse,
+  IAnalyticsOverviewFilters,
 } from "../api/campaigns";
 
 interface CampaignState {
@@ -19,6 +21,7 @@ interface CampaignState {
   campaigns: Campaign[];
   selectedCampaign: Campaign | null;
   selectedCampaignAnalytics: CampaignAnalytics | null;
+  analyticsOverview: IGlobalAnalyticsOverviewResponse | null;
   pagination: {
     page: number;
     limit: number;
@@ -30,12 +33,15 @@ interface CampaignState {
   isLoadingCampaigns: boolean;
   isLoadingDetail: boolean;
   isLoadingAnalytics: boolean;
+  isLoadingAnalyticsOverview: boolean;
   isGeneratingLink: boolean;
   isMutating: boolean;
   error: string | null;
   searchQuery: string;
   filterPlatform: string;
   filterStatus: string;
+  analyticsFilters: IAnalyticsOverviewFilters;
+  activeTab: "campaigns" | "analytics";
   generatedTrackingLink: string | null;
 }
 
@@ -45,18 +51,26 @@ const initialState: CampaignState = {
   campaigns: [],
   selectedCampaign: null,
   selectedCampaignAnalytics: null,
+  analyticsOverview: null,
   pagination: null,
   isLoadingSummary: false,
   isLoadingPlatforms: false,
   isLoadingCampaigns: false,
   isLoadingDetail: false,
   isLoadingAnalytics: false,
+  isLoadingAnalyticsOverview: false,
   isGeneratingLink: false,
   isMutating: false,
   error: null,
   searchQuery: "",
   filterPlatform: "all",
   filterStatus: "all",
+  analyticsFilters: {
+    platform: "all",
+    status: "all",
+    jobPostId: "all",
+  },
+  activeTab: "campaigns",
   generatedTrackingLink: null,
 };
 
@@ -280,6 +294,22 @@ export const fetchCampaignAnalyticsThunk = createAsyncThunk<
   }
 });
 
+export const fetchAnalyticsOverview = createAsyncThunk<
+  IGlobalAnalyticsOverviewResponse,
+  IAnalyticsOverviewFilters | undefined,
+  { rejectValue: string }
+>("campaigns/fetchAnalyticsOverview", async (filters, { rejectWithValue }) => {
+  try {
+    return await campaignsApi.getAnalyticsOverview(filters);
+  } catch (error) {
+    return rejectWithValue(
+      error instanceof Error
+        ? error.message
+        : "Failed to fetch analytics overview",
+    );
+  }
+});
+
 export const campaignSlice = createSlice({
   name: "campaigns",
   initialState,
@@ -292,6 +322,15 @@ export const campaignSlice = createSlice({
     },
     setFilterStatus: (state, action: PayloadAction<string>) => {
       state.filterStatus = action.payload;
+    },
+    setAnalyticsFilters: (
+      state,
+      action: PayloadAction<Partial<IAnalyticsOverviewFilters>>,
+    ) => {
+      state.analyticsFilters = { ...state.analyticsFilters, ...action.payload };
+    },
+    setActiveTab: (state, action: PayloadAction<"campaigns" | "analytics">) => {
+      state.activeTab = action.payload;
     },
     setSelectedCampaign: (state, action: PayloadAction<Campaign | null>) => {
       state.selectedCampaign = action.payload;
@@ -505,6 +544,21 @@ export const campaignSlice = createSlice({
         state.isLoadingAnalytics = false;
         state.error = action.payload || "Failed to fetch analytics";
       });
+
+    // Analytics Overview
+    builder
+      .addCase(fetchAnalyticsOverview.pending, (state) => {
+        state.isLoadingAnalyticsOverview = true;
+        state.error = null;
+      })
+      .addCase(fetchAnalyticsOverview.fulfilled, (state, action) => {
+        state.isLoadingAnalyticsOverview = false;
+        state.analyticsOverview = action.payload;
+      })
+      .addCase(fetchAnalyticsOverview.rejected, (state, action) => {
+        state.isLoadingAnalyticsOverview = false;
+        state.error = action.payload || "Failed to fetch analytics overview";
+      });
   },
 });
 
@@ -512,6 +566,8 @@ export const {
   setSearchQuery,
   setFilterPlatform,
   setFilterStatus,
+  setAnalyticsFilters,
+  setActiveTab,
   setSelectedCampaign,
   clearSelectedCampaign,
   clearGeneratedLink,

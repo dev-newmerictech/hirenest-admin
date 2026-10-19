@@ -267,4 +267,73 @@ export const campaignsApi = {
     );
     return res.data;
   },
+
+  getAnalyticsOverview: async (
+    filters?: IAnalyticsOverviewFilters,
+  ): Promise<IGlobalAnalyticsOverviewResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.set("startDate", filters.startDate);
+    if (filters?.endDate) params.set("endDate", filters.endDate);
+    if (filters?.platform && filters.platform !== "all")
+      params.set("platform", filters.platform);
+    if (filters?.status && filters.status !== "all")
+      params.set("status", filters.status);
+    if (filters?.jobPostId && filters.jobPostId !== "all")
+      params.set("jobPostId", filters.jobPostId);
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const res = await apiClient<{
+      success: boolean;
+      data: IGlobalAnalyticsOverviewResponse;
+    }>(`/api/v2/campaigns/admin/analytics/overview${query}`);
+    return res.data;
+  },
 };
+
+export interface IFunnelDropoffStage {
+  stage: string;
+  count: number;
+  conversionRate: number;
+  dropoffRate: number;
+}
+
+export interface IGlobalAnalyticsOverviewResponse {
+  kpis: {
+    totalImpressions: number;
+    totalJobViews: number;
+    totalLeads: number;
+    totalApplications: number;
+    blendedConversionRate: number;
+    activeCampaignsCount: number;
+  };
+  timeseries: Array<{
+    date: string;
+    impressions: number;
+    views: number;
+    leads: number;
+    applications: number;
+  }>;
+  funnel: IFunnelDropoffStage[];
+  platformBreakdown: Array<{
+    platform: string;
+    displayName: string;
+    campaignsCount: number;
+    impressions: number;
+    leads: number;
+    applications: number;
+    conversionRate: number;
+  }>;
+  topRequisitions: Array<{
+    jobPostId: string;
+    title: string;
+    applicationsCount: number;
+  }>;
+}
+
+export interface IAnalyticsOverviewFilters {
+  startDate?: string;
+  endDate?: string;
+  platform?: string;
+  status?: string;
+  jobPostId?: string;
+}
