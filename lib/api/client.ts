@@ -1,6 +1,6 @@
 // API client with authentication and transparent token refresh support
 
-import { API_URL } from './config';
+import { API_URL, getApiBaseUrl } from './config';
 
 interface RequestOptions extends RequestInit {
   requireAuth?: boolean;
@@ -23,7 +23,7 @@ function addRefreshSubscriber(callback: (newToken: string) => void) {
  * Perform silent token refresh against backend
  */
 async function refreshAuthToken(): Promise<string> {
-  const response = await fetch(`${API_URL}/admin/auth/refresh`, {
+  const response = await fetch(`${getApiBaseUrl()}/admin/auth/refresh`, {
     method: 'POST',
     credentials: 'include',
     headers: {
@@ -74,7 +74,7 @@ export async function apiClient<T = any>(
     }
   }
 
-  const url = endpoint.startsWith('http') ? endpoint : `${API_URL}${endpoint}`;
+  const url = endpoint.startsWith('http') ? endpoint : `${getApiBaseUrl()}${endpoint}`;
 
   try {
     const response = await fetch(url, config);

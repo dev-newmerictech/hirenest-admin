@@ -1,7 +1,7 @@
 // Job Seekers API functions
 
 import { api } from './client';
-import { JobSeeker, JobSeekerAPIResponse } from '../types';
+import { JobSeeker, JobSeekerAPIResponse, DetailedJobSeeker } from '../types';
 
 export interface JobSeekersListResponse {
   status: string;
@@ -18,7 +18,7 @@ export interface JobSeekersListResponse {
 
 export interface JobSeekerDetailResponse {
   status: string;
-  data: JobSeekerAPIResponse | { jobSeeker: JobSeekerAPIResponse };
+  data: JobSeekerAPIResponse | { jobSeeker: JobSeekerAPIResponse } | any;
 }
 
 export interface JobSeekerSyncResponse {
@@ -43,14 +43,39 @@ export function transformJobSeeker(apiJobSeeker: JobSeekerAPIResponse): JobSeeke
     country: apiJobSeeker.address?.country,
     acquisitionSource: apiJobSeeker.createdBy?.acquisitionSource,
     isOnboarded: apiJobSeeker.isOnboarded,
-    phone: apiJobSeeker.mobile && apiJobSeeker.mobile.mobileNumber ? `+${apiJobSeeker.mobile.countryCode} ${apiJobSeeker.mobile.mobileNumber}` : undefined,
+    phone: apiJobSeeker.mobile && apiJobSeeker.mobile.mobileNumber ? `+${apiJobSeeker.mobile.countryCode || 91} ${apiJobSeeker.mobile.mobileNumber}` : undefined,
+  };
+}
+
+export function transformDetailedJobSeeker(data: any): DetailedJobSeeker {
+  const base = transformJobSeeker(data);
+  const createdBy = typeof data.createdBy === 'object' ? data.createdBy : null;
+  return {
+    ...base,
+    profilePicture: data.profilePicture,
+    bio: data.bio,
+    addressLine1: data.address?.addressLine1,
+    addressLine2: data.address?.addressLine2,
+    postalCode: data.address?.postalCode,
+    experiences: data.experiences || [],
+    educations: data.educations || [],
+    preferences: data.preferences,
+    documents: data.documents || [],
+    socialLinks: data.socialLinks || [],
+    createdByDetails: createdBy ? {
+      firstName: createdBy.firstName,
+      lastName: createdBy.lastName,
+      email: createdBy.email,
+      provider: createdBy.provider,
+      createdAt: createdBy.createdAt,
+    } : undefined,
   };
 }
 
 export function extractJobSeekerFromDetailResponse(
   detailData: JobSeekerDetailResponse['data']
-): JobSeekerAPIResponse {
-  if ('jobSeeker' in detailData) {
+): any {
+  if (detailData && 'jobSeeker' in detailData) {
     return detailData.jobSeeker;
   }
 

@@ -38,7 +38,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { useAppSelector } from "@/lib/store/hooks";
+import { useAppSelector, useAppDispatch } from "@/lib/store/hooks";
+import { logout } from "@/lib/store/authSlice";
+import { authApi } from "@/lib/api/auth";
 import { roleRouteAccess, type AdminRole } from "@/lib/rbacConfig";
 
 interface AdminLayoutProps {
@@ -100,6 +102,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
 
   // Filter navigation items based on user's admin role
@@ -110,8 +113,14 @@ export function AdminLayout({ children }: AdminLayoutProps) {
     allowedRoutes.includes(item.href),
   );
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await authApi.logout();
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
     clearAuthSession();
+    dispatch(logout());
     router.push("/admin/login");
   };
 

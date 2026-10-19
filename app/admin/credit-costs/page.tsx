@@ -22,7 +22,7 @@ import { Save, RefreshCw, Video, FileText, HelpCircle, Rocket, Linkedin, Zap } f
 import type { CreditCostConfig } from "@/lib/types"
 import { useToast } from "@/hooks/use-toast"
 
-import { API_URL as API_BASE_URL } from "@/lib/api/config"
+import { getApiBaseUrl } from "@/lib/api/config"
 
 const ACTION_TYPE_ICONS: Record<string, any> = {
   mcq_interview: HelpCircle,
@@ -63,7 +63,7 @@ export default function CreditCostsPage() {
 
   const fetchConfigs = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/subscription/credit-costs`)
+      const response = await fetch(`${getApiBaseUrl()}/admin/subscription/credit-costs`)
       const data = await response.json()
       if (data.success) {
         setConfigs(data.data)
@@ -87,7 +87,7 @@ export default function CreditCostsPage() {
 
   const handleSeedDefaults = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/admin/subscription/credit-costs/seed`, {
+      const response = await fetch(`${getApiBaseUrl()}/admin/subscription/credit-costs/seed`, {
         method: "POST",
       })
       const data = await response.json()
@@ -111,7 +111,7 @@ export default function CreditCostsPage() {
     setSaving(actionType)
     try {
       const response = await fetch(
-        `${API_BASE_URL}/admin/subscription/credit-costs/${actionType}`,
+        `${getApiBaseUrl()}/admin/subscription/credit-costs/${actionType}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -144,7 +144,7 @@ export default function CreditCostsPage() {
   const handleToggleActive = async (config: CreditCostConfig) => {
     try {
       const response = await fetch(
-        `${API_BASE_URL}/admin/subscription/credit-costs/${config.actionType}`,
+        `${getApiBaseUrl()}/admin/subscription/credit-costs/${config.actionType}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },

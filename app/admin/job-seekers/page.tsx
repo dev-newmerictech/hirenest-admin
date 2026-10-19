@@ -63,19 +63,23 @@ export default function JobSeekersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [isSyncing, setIsSyncing] = useState(false)
 
-  // Load from IndexedDB cache on mount, fetch from API if no cache
+  // Load from IndexedDB cache on mount, fetch from API if no cache or empty or older than 15 mins
   useEffect(() => {
     const initData = async () => {
-      if (allJobSeekers.length > 0 && lastFetchedAt) return // Already have data in Redux
-
       const cacheResult = await dispatch(loadJobSeekersFromCache()).unwrap()
-      if (!cacheResult) {
-        // No cache — fetch from API
+      if (!cacheResult || !cacheResult.jobSeekers || cacheResult.jobSeekers.length === 0) {
+        // No cache or empty — fetch from API
         dispatch(fetchAllJobSeekers())
+      } else {
+        // Cache exists — if older than 15 minutes, refresh in background
+        const FIFTEEN_MINUTES = 15 * 60 * 1000
+        if (Date.now() - cacheResult.timestamp > FIFTEEN_MINUTES) {
+          dispatch(fetchAllJobSeekers())
+        }
       }
     }
     initData()
-  }, [dispatch, allJobSeekers.length, lastFetchedAt])
+  }, [dispatch])
 
   // Show error toast
   useEffect(() => {
@@ -94,7 +98,6 @@ export default function JobSeekersPage() {
     // 1. Deduplicate by email so the same candidate never appears twice, prioritizing profiles with complete data
     const candidateMap = new Map<string, JobSeeker>()
     for (const seeker of allJobSeekers) {
-      if (!seeker.isOnboarded) continue
       const normalizedEmail = seeker.email?.toLowerCase().trim()
       const key = normalizedEmail || seeker.id
       const existing = candidateMap.get(key)
@@ -115,11 +118,19 @@ export default function JobSeekersPage() {
         }
       }
     }
-    const onboardedSeekers = Array.from(candidateMap.values())
-    if (!searchQuery.trim()) return onboardedSeekers
+    const seekers = Array.from(candidateMap.values())
+
+    // 2. CRITICAL: Sort descending by registration date so newest candidates (Oct 7, Oct 8) are always on Page 1!
+    seekers.sort((a, b) => {
+      const timeA = a.registrationDate ? new Date(a.registrationDate).getTime() : 0
+      const timeB = b.registrationDate ? new Date(b.registrationDate).getTime() : 0
+      return timeB - timeA
+    })
+
+    if (!searchQuery.trim()) return seekers
     
     const query = searchQuery.toLowerCase()
-    return onboardedSeekers.filter(
+    return seekers.filter(
       (seeker) =>
         seeker.name.toLowerCase().includes(query) ||
         seeker.email.toLowerCase().includes(query) ||
@@ -136,29 +147,21 @@ export default function JobSeekersPage() {
     return filteredJobSeekers.slice(start, start + ITEMS_PER_PAGE)
   }, [filteredJobSeekers, currentPage])
 
-  // Refresh — incrementally sync or force re-fetch
+  // Refresh — force fresh fetch from server
   const handleRefresh = useCallback(async () => {
     setIsSyncing(true)
     try {
-      if (lastFetchedAt) {
-        await dispatch(syncJobSeekers(lastFetchedAt)).unwrap()
-        toast({
-          title: "Delta Sync Complete",
-          description: `Successfully fetched incremental updates.`,
-        })
-      } else {
-        await dispatch(fetchAllJobSeekers()).unwrap()
-        toast({
-          title: "Full Sync Complete",
-          description: `Successfully loaded all job seekers.`,
-        })
-      }
+      const result = await dispatch(fetchAllJobSeekers()).unwrap()
+      toast({
+        title: "Sync Complete",
+        description: `Loaded all ${result.jobSeekers.length} latest job seekers from database.`,
+      })
     } catch {
       // Error is handled by the slice
     } finally {
       setIsSyncing(false)
     }
-  }, [dispatch, toast, lastFetchedAt])
+  }, [dispatch, toast])
 
   // Export to Excel — from in-memory data (no API call)
   const handleExport = useCallback(() => {
@@ -291,7 +294,7 @@ export default function JobSeekersPage() {
       label: "Name",
       render: (item) => (
         <button
-          onClick={() => handleView(item)}
+          onClick={() => item.id && router.push(`/admin/job-seekers/${item.id}`)}
           className="text-foreground hover:text-primary transition-colors font-medium text-left"
         >
           {item.name}
@@ -392,7 +395,12 @@ export default function JobSeekersPage() {
             <div className="h-64 rounded-lg bg-muted animate-pulse" />
           ) : (
             <>
-              <DataTable columns={columns} data={paginatedJobSeekers} emptyMessage="No job seekers found" />
+              <DataTable 
+                columns={columns} 
+                data={paginatedJobSeekers} 
+                onRowClick={(item) => item.id && router.push(`/admin/job-seekers/${item.id}`)}
+                emptyMessage="No job seekers found" 
+              />
               
               {/* Client-side Pagination */}
               {totalPages > 1 && !searchQuery && (

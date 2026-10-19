@@ -6,14 +6,15 @@ import {
   companiesApi, 
   CompaniesListResponse, 
   CompanyDetailResponse,
-  transformCompany 
+  transformCompany,
+  transformDetailedCompany,
 } from '../api/companies';
-import { Company } from '../types';
+import { Company, DetailedCompany } from '../types';
 import { getCachedData, setCachedData, CACHE_KEYS } from '../cache/adminCache';
 
 interface CompaniesState {
   allCompanies: Company[];        // ALL companies (from IndexedDB or API)
-  selectedCompany: Company | null;
+  selectedCompany: DetailedCompany | null;
   isLoading: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
@@ -277,7 +278,8 @@ const companiesSlice = createSlice({
       })
       .addCase(fetchCompanyProfile.fulfilled, (state, action: PayloadAction<CompanyDetailResponse>) => {
         state.isLoading = false;
-        state.selectedCompany = transformCompany(action.payload.data);
+        const raw = action.payload.data && 'jobProvider' in action.payload.data ? action.payload.data.jobProvider : action.payload.data;
+        state.selectedCompany = transformDetailedCompany(raw);
         state.error = null;
       })
       .addCase(fetchCompanyProfile.rejected, (state, action) => {

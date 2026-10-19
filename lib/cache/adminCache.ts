@@ -4,12 +4,12 @@
 
 // Cache keys — follow the same naming convention as the map page
 export const CACHE_KEYS = {
-  jobSeekers: 'hirenest_admin_job_seekers',
-  jobSeekersTime: 'hirenest_admin_job_seekers_ts',
-  companies: 'hirenest_admin_companies',
-  companiesTime: 'hirenest_admin_companies_ts',
-  jobPosts: 'hirenest_admin_job_posts',
-  jobPostsTime: 'hirenest_admin_job_posts_ts',
+  jobSeekers: 'hirenest_admin_job_seekers_v2',
+  jobSeekersTime: 'hirenest_admin_job_seekers_ts_v2',
+  companies: 'hirenest_admin_companies_v2',
+  companiesTime: 'hirenest_admin_companies_ts_v2',
+  jobPosts: 'hirenest_admin_job_posts_v2',
+  jobPostsTime: 'hirenest_admin_job_posts_ts_v2',
 } as const;
 
 // Lazy-load idb-keyval only in the browser to avoid SSR errors

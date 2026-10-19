@@ -3,7 +3,7 @@
 
 import { useAppSelector } from "./store/hooks";
 
-export type AdminRole = "super_admin" | "marketing";
+export type AdminRole = "super_admin" | "operations" | "marketing";
 
 /**
  * Maps each admin role to the routes they are allowed to access.
@@ -28,6 +28,18 @@ export const roleRouteAccess: Record<AdminRole, string[]> = {
     "/admin/subscriptions",
     "/admin/settings",
   ],
+  operations: [
+    "/admin/dashboard",
+    "/admin/analytics",
+    "/admin/job-seekers",
+    "/admin/companies",
+    "/admin/not-onboarded",
+    "/admin/marketing-emails",
+    "/admin/jobs",
+    "/admin/campaigns",
+    "/admin/user-map",
+    "/admin/settings",
+  ],
   marketing: [
     "/admin/dashboard",
     "/admin/analytics",
@@ -47,6 +59,7 @@ export const roleRouteAccess: Record<AdminRole, string[]> = {
  */
 export const defaultRouteForRole: Record<AdminRole, string> = {
   super_admin: "/admin/dashboard",
+  operations: "/admin/dashboard",
   marketing: "/admin/dashboard",
 };
 
@@ -58,6 +71,7 @@ export const rolePermissions: Record<
   { canWrite: boolean; canManageMarketing: boolean }
 > = {
   super_admin: { canWrite: true, canManageMarketing: true },
+  operations: { canWrite: false, canManageMarketing: true },
   marketing: { canWrite: false, canManageMarketing: true },
 };
 

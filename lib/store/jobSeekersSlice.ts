@@ -7,14 +7,15 @@ import {
   JobSeekersListResponse,
   JobSeekerDetailResponse,
   transformJobSeeker,
+  transformDetailedJobSeeker,
   extractJobSeekerFromDetailResponse,
 } from '../api/jobSeekers';
-import { JobSeeker } from '../types';
+import { JobSeeker, DetailedJobSeeker } from '../types';
 import { getCachedData, setCachedData, CACHE_KEYS } from '../cache/adminCache';
 
 interface JobSeekersState {
   allJobSeekers: JobSeeker[];     // ALL job seekers (from IndexedDB or API)
-  selectedJobSeeker: JobSeeker | null;
+  selectedJobSeeker: DetailedJobSeeker | null;
   isLoading: boolean;
   isUpdating: boolean;
   isDeleting: boolean;
@@ -87,8 +88,13 @@ export const syncJobSeekers = createAsyncThunk<
   'jobSeekers/sync',
   async (lastFetchedAt, { rejectWithValue, getState }) => {
     try {
-      // 1. Convert timestamp to ISO string for backend
-      const since = new Date(lastFetchedAt).toISOString();
+      // 1. Determine since timestamp: use newest cached record's registration date with 5-min safety buffer, or fall back to lastFetchedAt
+      const state = getState() as { jobSeekers: JobSeekersState };
+      const currentRecordsInState = state.jobSeekers?.allJobSeekers || [];
+      const newestRecord = currentRecordsInState[0];
+      const since = newestRecord?.registrationDate
+        ? new Date(new Date(newestRecord.registrationDate).getTime() - 5 * 60000).toISOString()
+        : new Date(lastFetchedAt).toISOString();
       
       // 2. Fetch delta from API
       const response = await jobSeekersApi.syncJobSeekers(since);
@@ -286,7 +292,7 @@ const jobSeekersSlice = createSlice({
       .addCase(fetchJobSeekerProfile.fulfilled, (state, action: PayloadAction<JobSeekerDetailResponse>) => {
         state.isLoading = false;
         const jobSeeker = extractJobSeekerFromDetailResponse(action.payload.data);
-        state.selectedJobSeeker = transformJobSeeker(jobSeeker);
+        state.selectedJobSeeker = transformDetailedJobSeeker(jobSeeker);
         state.error = null;
       })
       .addCase(fetchJobSeekerProfile.rejected, (state, action) => {

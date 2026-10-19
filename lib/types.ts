@@ -22,6 +22,66 @@ export interface JobSeeker {
   phone?: string
 }
 
+export interface ProfileExperience {
+  company?: string
+  position?: string
+  keyResponsibilities?: string[]
+  startDate?: string
+  endDate?: string
+}
+
+export interface ProfileEducation {
+  degree?: string
+  fieldOfStudy?: string
+  institution?: string
+  startDate?: string
+  endDate?: string
+}
+
+export interface ProfileDocument {
+  _id?: string
+  name?: string
+  url?: string[]
+  isValid?: boolean
+  verificationStatus?: string
+  rejectionReason?: string
+}
+
+export interface ProfileSocialLink {
+  platform?: string
+  url?: string
+}
+
+export interface DetailedJobSeeker extends JobSeeker {
+  profilePicture?: string
+  bio?: string
+  addressLine1?: string
+  addressLine2?: string
+  postalCode?: string
+  experiences?: ProfileExperience[]
+  educations?: ProfileEducation[]
+  preferences?: {
+    openToWork?: string
+    industries?: string[]
+    categories?: string[]
+    subCategories?: string[]
+    skills?: string[]
+    verifiedSkills?: string[]
+    workMode?: string[]
+    employmentType?: string[]
+    gender?: string
+  }
+  documents?: ProfileDocument[]
+  socialLinks?: ProfileSocialLink[]
+  createdByDetails?: {
+    firstName?: string
+    lastName?: string
+    email?: string
+    provider?: string[]
+    createdAt?: string
+  }
+}
+
 // API Response format from backend
 export interface JobSeekerAPIResponse {
   _id: string
@@ -65,6 +125,36 @@ export interface Company {
   isDocumentVerified?: boolean
   acquisitionSource?: string
   isOnboarded?: boolean
+}
+
+export interface DetailedCompany extends Company {
+  profilePicture?: string
+  bio?: string
+  ownerName?: string
+  phone?: string
+  addressLine1?: string
+  addressLine2?: string
+  city?: string
+  state?: string
+  country?: string
+  postalCode?: string
+  teamMembers?: Array<any>
+  documents?: ProfileDocument[]
+  preferences?: {
+    industries?: string[]
+    skills?: string[]
+    workMode?: string[]
+    employmentType?: string[]
+  }
+  socialLinks?: ProfileSocialLink[]
+  jobPostsCount?: number
+  createdByDetails?: {
+    firstName?: string
+    lastName?: string
+    email?: string
+    provider?: string[]
+    createdAt?: string
+  }
 }
 
 // API Response format from backend for companies
