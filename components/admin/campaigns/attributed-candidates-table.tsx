@@ -231,7 +231,7 @@ export function AttributedCandidatesTable() {
               <SelectContent>
                 <SelectItem value="all">All Channels</SelectItem>
                 {platforms.map((p) => (
-                  <SelectItem key={p.id} value={p.platform}>
+                  <SelectItem key={p.platform} value={p.platform}>
                     {p.displayName || p.platform.toUpperCase()}
                   </SelectItem>
                 ))}
@@ -257,7 +257,10 @@ export function AttributedCandidatesTable() {
               <SelectContent>
                 <SelectItem value="all">All Campaigns</SelectItem>
                 {campaigns.map((c) => (
-                  <SelectItem key={c.id} value={c.campaignCode}>
+                  <SelectItem
+                    key={c.campaignCode || c.id}
+                    value={c.campaignCode}
+                  >
                     {c.name} ({c.campaignCode})
                   </SelectItem>
                 ))}
@@ -356,7 +359,7 @@ export function AttributedCandidatesTable() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/40">
-                {attributedApplicants.map((item) => {
+                {attributedApplicants.map((item, idx) => {
                   const initials = item.candidateName
                     ? item.candidateName
                         .split(" ")
@@ -368,7 +371,7 @@ export function AttributedCandidatesTable() {
 
                   return (
                     <tr
-                      key={item.id}
+                      key={item.id || item.applicationId || idx}
                       className="hover:bg-muted/30 transition-colors"
                     >
                       {/* Candidate Identity */}
