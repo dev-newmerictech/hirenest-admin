@@ -288,6 +288,32 @@ export const campaignsApi = {
     }>(`/api/v2/campaigns/admin/analytics/overview${query}`);
     return res.data;
   },
+
+  getAttributedApplicants: async (
+    filters?: IAttributedApplicantsFilters,
+  ): Promise<IAttributedApplicantsResponse> => {
+    const params = new URLSearchParams();
+    if (filters?.page) params.set("page", String(filters.page));
+    if (filters?.limit) params.set("limit", String(filters.limit));
+    if (filters?.campaignCode && filters.campaignCode !== "all")
+      params.set("campaignCode", filters.campaignCode);
+    if (filters?.platform && filters.platform !== "all")
+      params.set("platform", filters.platform);
+    if (filters?.jobPostId && filters.jobPostId !== "all")
+      params.set("jobPostId", filters.jobPostId);
+    if (filters?.status && filters.status !== "all")
+      params.set("status", filters.status);
+    if (filters?.search) params.set("search", filters.search);
+    if (filters?.startDate) params.set("startDate", filters.startDate);
+    if (filters?.endDate) params.set("endDate", filters.endDate);
+
+    const query = params.toString() ? `?${params.toString()}` : "";
+    const res = await apiClient<{
+      success: boolean;
+      data: IAttributedApplicantsResponse;
+    }>(`/api/v2/campaigns/admin/applicants${query}`);
+    return res.data;
+  },
 };
 
 export interface IFunnelDropoffStage {
@@ -336,4 +362,51 @@ export interface IAnalyticsOverviewFilters {
   platform?: string;
   status?: string;
   jobPostId?: string;
+}
+
+export interface IAttributedApplicantsFilters {
+  page?: number;
+  limit?: number;
+  campaignCode?: string;
+  platform?: string;
+  jobPostId?: string;
+  status?: string;
+  search?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface IAttributedApplicantItem {
+  id: string;
+  applicationId: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone?: string;
+  candidateCountryCode?: number;
+  resumeUrl?: string;
+  skills: string[];
+  jobTitle: string;
+  jobPostId: string;
+  companyName?: string;
+  campaignCode?: string;
+  campaignName?: string;
+  platform?: string;
+  status: string;
+  appliedVia: string;
+  appliedAt: string;
+}
+
+export interface IAttributedApplicantsResponse {
+  applicants: IAttributedApplicantItem[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+  summary: {
+    totalAttributed: number;
+    fastTrackCount: number;
+    standardCount: number;
+  };
 }

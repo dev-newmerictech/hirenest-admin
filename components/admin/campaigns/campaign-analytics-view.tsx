@@ -11,6 +11,7 @@ import { CampaignTimeseriesChart } from "./campaign-timeseries-chart";
 import { CampaignFunnelMatrix } from "./campaign-funnel-matrix";
 import { CampaignChannelDonut } from "./campaign-channel-donut";
 import { TopRequisitionsCard } from "./top-requisitions-card";
+import { AttributedCandidatesTable } from "./attributed-candidates-table";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { exportToExcel } from "@/lib/utils/excelExport";
@@ -509,6 +510,9 @@ export function CampaignAnalyticsView() {
           </table>
         </div>
       </Card>
+
+      {/* Row 4: Campaign Attributed Candidates & Application Inflow Table */}
+      <AttributedCandidatesTable />
     </div>
   );
 }
