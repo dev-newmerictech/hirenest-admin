@@ -779,7 +779,7 @@ export function CampaignAnalyticsView() {
                   sortedJobPosts.map((job, idx) => {
                     return (
                       <tr
-                        key={job.jobPostId}
+                        key={job.jobPostId || idx}
                         className="hover:bg-muted/30 transition-colors"
                       >
                         {/* Rank & Job Title */}
@@ -803,7 +803,10 @@ export function CampaignAnalyticsView() {
                                 {job.title}
                               </div>
                               <div className="text-[10px] font-mono text-muted-foreground">
-                                ID: #{job.jobPostId.slice(-6)}
+                                ID: #
+                                {job.jobPostId
+                                  ? job.jobPostId.slice(-6)
+                                  : "N/A"}
                               </div>
                             </div>
                           </div>
