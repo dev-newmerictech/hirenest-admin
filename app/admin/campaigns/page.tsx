@@ -242,7 +242,7 @@ export default function CampaignsPage() {
     },
     {
       key: "leadsCount",
-      label: "Leads",
+      label: "Sign-ups",
       render: (item) => {
         const rate =
           item.impressionsCount > 0

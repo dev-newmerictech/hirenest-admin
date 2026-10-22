@@ -53,10 +53,10 @@ export function CampaignStats({ summary, isLoading }: CampaignStatsProps) {
         description="Gate visits across platforms"
       />
       <StatCard
-        title="Leads Captured"
+        title="Sign-ups"
         value={totalLeads.toLocaleString()}
         icon={UserCheck}
-        description={`${leadConvRate}% lead conversion`}
+        description={`${leadConvRate}% sign-up conversion`}
       />
       <StatCard
         title="Applications"

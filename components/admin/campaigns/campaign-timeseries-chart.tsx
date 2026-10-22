@@ -36,7 +36,7 @@ const chartConfig = {
     color: "#0ea5e9", // Sky
   },
   leads: {
-    label: "Leads",
+    label: "Sign-ups",
     color: "#f59e0b", // Amber
   },
   applications: {
@@ -137,7 +137,7 @@ export function CampaignTimeseriesChart({
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>Leads</span>
+              <span>Sign-ups</span>
             </button>
 
             <button

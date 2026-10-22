@@ -9,6 +9,10 @@ export interface IJobBinding {
   isActive: boolean;
   generatedUrl: string;
   deactivatedAt?: string | null;
+  impressionsCount?: number;
+  signupsCount?: number;
+  applicationsCount?: number;
+  conversionRate?: number;
 }
 
 export interface Campaign {
@@ -352,7 +356,13 @@ export interface IGlobalAnalyticsOverviewResponse {
   topRequisitions: Array<{
     jobPostId: string;
     title: string;
+    campaignNames?: string[];
+    campaignCodes?: string[];
+    platform?: string;
+    impressions?: number;
+    signupsCount?: number;
     applicationsCount: number;
+    conversionRate?: number;
   }>;
 }
 
