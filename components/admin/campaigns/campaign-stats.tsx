@@ -25,9 +25,11 @@ export function CampaignStats({ summary, isLoading }: CampaignStatsProps) {
 
   const activeCampaigns = summary?.activeCampaigns ?? 0;
   const totalCampaigns = summary?.totalCampaigns ?? 0;
-  const totalImpressions = summary?.totalImpressions ?? 0;
-  const totalLeads = summary?.totalLeads ?? 0;
-  const totalApplications = summary?.totalApplications ?? 0;
+  const totalImpressions =
+    summary?.impressions ?? summary?.totalImpressions ?? 0;
+  const totalLeads = summary?.leads ?? summary?.totalLeads ?? 0;
+  const totalApplications =
+    summary?.applications ?? summary?.totalApplications ?? 0;
 
   const leadConvRate =
     totalImpressions > 0

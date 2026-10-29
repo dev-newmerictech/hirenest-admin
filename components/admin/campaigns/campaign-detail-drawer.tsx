@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DetailDrawer } from "@/components/admin/detail-drawer";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SearchableJobSelect } from "./searchable-job-select";
+import { FunnelChart } from "./funnel-chart";
 import { Campaign } from "@/lib/api/campaigns";
 import { Job } from "@/lib/types";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
@@ -14,6 +15,7 @@ import {
   bindJobThunk,
   updateCampaignThunk,
   fetchCampaign,
+  fetchCampaignAnalyticsThunk,
 } from "@/lib/store/campaignSlice";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -46,9 +48,12 @@ export function CampaignDetailDrawer({
 }: CampaignDetailDrawerProps) {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
-  const { selectedCampaign, isMutating } = useAppSelector(
-    (state) => state.campaigns,
-  );
+  const {
+    selectedCampaign,
+    selectedCampaignAnalytics,
+    isLoadingAnalytics,
+    isMutating,
+  } = useAppSelector((state) => state.campaigns);
 
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [selectedJobToBind, setSelectedJobToBind] = useState<string>("");
@@ -59,6 +64,14 @@ export function CampaignDetailDrawer({
     (selectedCampaign && selectedCampaign.id === campaign?.id
       ? selectedCampaign
       : campaign) || campaign;
+
+  const activeCampaignId = activeCampaign?.id;
+
+  useEffect(() => {
+    if (open && activeCampaignId) {
+      dispatch(fetchCampaignAnalyticsThunk(activeCampaignId));
+    }
+  }, [dispatch, open, activeCampaignId]);
 
   if (!activeCampaign) return null;
 
@@ -211,6 +224,46 @@ export function CampaignDetailDrawer({
               Edit
             </Button>
           </div>
+        </div>
+
+        {/* Campaign Funnel Performance Section */}
+        <div className="w-full min-w-0">
+          {(() => {
+            const isAnalyticsForActiveCampaign =
+              selectedCampaignAnalytics?.campaignId === activeCampaign.id;
+            const currentAnalytics = isAnalyticsForActiveCampaign
+              ? selectedCampaignAnalytics
+              : null;
+
+            return (
+              <FunnelChart
+                impressions={
+                  currentAnalytics?.impressions ??
+                  (currentAnalytics as any)?.totalImpressions ??
+                  activeCampaign.impressionsCount ??
+                  0
+                }
+                leads={
+                  currentAnalytics?.leads ??
+                  (currentAnalytics as any)?.totalLeads ??
+                  activeCampaign.leadsCount ??
+                  0
+                }
+                applications={
+                  currentAnalytics?.applications ??
+                  (currentAnalytics as any)?.totalApplications ??
+                  activeCampaign.applicationsCount ??
+                  0
+                }
+                dailyTrends={
+                  currentAnalytics?.dailyFunnelTrends ??
+                  (currentAnalytics as any)?.timeseries ??
+                  []
+                }
+                title={`${activeCampaign.name} Funnel Performance`}
+              />
+            );
+          })()}
         </div>
 
         {/* HERO SECTION: Job Linkage & Route Manager */}

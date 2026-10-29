@@ -44,8 +44,24 @@ export interface GlobalDashboardSummary {
   totalImpressions: number;
   totalLeads: number;
   totalApplications: number;
+  impressions?: number;
+  leads?: number;
+  applications?: number;
+  conversionRate?: number;
+  overallConversionRate?: number;
+  platforms?: Array<{
+    platform: string;
+    displayName?: string;
+    isActive: boolean;
+    campaignsCount: number;
+    impressionsCount: number;
+    leadsCount?: number;
+    applicationsCount?: number;
+  }>;
   platformBreakdown: Array<{
     platform: string;
+    displayName?: string;
+    isActive?: boolean;
     campaignsCount: number;
     impressionsCount: number;
     leadsCount: number;
@@ -56,18 +72,39 @@ export interface GlobalDashboardSummary {
 export interface CampaignAnalytics {
   campaignId: string;
   campaignCode: string;
+  name?: string;
   platform: string;
+  status?: CampaignStatus;
   impressions: number;
+  totalImpressions?: number;
   leads: number;
+  totalLeads?: number;
   applications: number;
+  totalApplications?: number;
+  conversionRate?: number;
   leadConversionRate: number;
   applicationConversionRate: number;
-  activeJobBindings: number;
+  activeJobBindings?: number;
+  funnel?: Array<{
+    stage: string;
+    count: number;
+    conversionRate: number;
+  }>;
   dailyFunnelTrends?: Array<{
     date: string;
     impressions: number;
+    clicks?: number;
     leads: number;
     applications: number;
+    jobViews?: number;
+  }>;
+  timeseries?: Array<{
+    date: string;
+    impressions: number;
+    clicks?: number;
+    leads: number;
+    applications: number;
+    jobViews?: number;
   }>;
 }
 
