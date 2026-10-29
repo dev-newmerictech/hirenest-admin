@@ -11,6 +11,11 @@ import {
   UpdateCampaignDTO,
   BindJobDTO,
   GenerateLinkDTO,
+  IGlobalAnalyticsOverviewResponse,
+  IAnalyticsOverviewFilters,
+  IAttributedApplicantItem,
+  IAttributedApplicantsResponse,
+  IAttributedApplicantsFilters,
 } from "../api/campaigns";
 
 interface CampaignState {
@@ -19,6 +24,7 @@ interface CampaignState {
   campaigns: Campaign[];
   selectedCampaign: Campaign | null;
   selectedCampaignAnalytics: CampaignAnalytics | null;
+  analyticsOverview: IGlobalAnalyticsOverviewResponse | null;
   pagination: {
     page: number;
     limit: number;
@@ -30,13 +36,30 @@ interface CampaignState {
   isLoadingCampaigns: boolean;
   isLoadingDetail: boolean;
   isLoadingAnalytics: boolean;
+  isLoadingAnalyticsOverview: boolean;
   isGeneratingLink: boolean;
   isMutating: boolean;
   error: string | null;
   searchQuery: string;
   filterPlatform: string;
   filterStatus: string;
+  analyticsFilters: IAnalyticsOverviewFilters;
+  activeTab: "campaigns" | "analytics";
   generatedTrackingLink: string | null;
+  attributedApplicants: IAttributedApplicantItem[];
+  attributedApplicantsPagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  } | null;
+  attributedApplicantsSummary: {
+    totalAttributed: number;
+    fastTrackCount: number;
+    standardCount: number;
+  } | null;
+  isLoadingAttributedApplicants: boolean;
+  applicantFilters: IAttributedApplicantsFilters;
 }
 
 const initialState: CampaignState = {
@@ -45,19 +68,39 @@ const initialState: CampaignState = {
   campaigns: [],
   selectedCampaign: null,
   selectedCampaignAnalytics: null,
+  analyticsOverview: null,
   pagination: null,
   isLoadingSummary: false,
   isLoadingPlatforms: false,
   isLoadingCampaigns: false,
   isLoadingDetail: false,
   isLoadingAnalytics: false,
+  isLoadingAnalyticsOverview: false,
   isGeneratingLink: false,
   isMutating: false,
   error: null,
   searchQuery: "",
   filterPlatform: "all",
   filterStatus: "all",
+  analyticsFilters: {
+    platform: "all",
+    status: "all",
+    jobPostId: "all",
+  },
+  activeTab: "campaigns",
   generatedTrackingLink: null,
+  attributedApplicants: [],
+  attributedApplicantsPagination: null,
+  attributedApplicantsSummary: null,
+  isLoadingAttributedApplicants: false,
+  applicantFilters: {
+    page: 1,
+    limit: 10,
+    campaignCode: "all",
+    platform: "all",
+    status: "all",
+    search: "",
+  },
 };
 
 // Async thunks
@@ -280,6 +323,41 @@ export const fetchCampaignAnalyticsThunk = createAsyncThunk<
   }
 });
 
+export const fetchAnalyticsOverview = createAsyncThunk<
+  IGlobalAnalyticsOverviewResponse,
+  IAnalyticsOverviewFilters | undefined,
+  { rejectValue: string }
+>("campaigns/fetchAnalyticsOverview", async (filters, { rejectWithValue }) => {
+  try {
+    return await campaignsApi.getAnalyticsOverview(filters);
+  } catch (error) {
+    return rejectWithValue(
+      error instanceof Error
+        ? error.message
+        : "Failed to fetch analytics overview",
+    );
+  }
+});
+
+export const fetchAttributedApplicants = createAsyncThunk<
+  IAttributedApplicantsResponse,
+  IAttributedApplicantsFilters | undefined,
+  { rejectValue: string }
+>(
+  "campaigns/fetchAttributedApplicants",
+  async (filters, { rejectWithValue }) => {
+    try {
+      return await campaignsApi.getAttributedApplicants(filters);
+    } catch (error) {
+      return rejectWithValue(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch attributed candidates",
+      );
+    }
+  },
+);
+
 export const campaignSlice = createSlice({
   name: "campaigns",
   initialState,
@@ -293,6 +371,15 @@ export const campaignSlice = createSlice({
     setFilterStatus: (state, action: PayloadAction<string>) => {
       state.filterStatus = action.payload;
     },
+    setAnalyticsFilters: (
+      state,
+      action: PayloadAction<Partial<IAnalyticsOverviewFilters>>,
+    ) => {
+      state.analyticsFilters = { ...state.analyticsFilters, ...action.payload };
+    },
+    setActiveTab: (state, action: PayloadAction<"campaigns" | "analytics">) => {
+      state.activeTab = action.payload;
+    },
     setSelectedCampaign: (state, action: PayloadAction<Campaign | null>) => {
       state.selectedCampaign = action.payload;
     },
@@ -305,6 +392,19 @@ export const campaignSlice = createSlice({
     },
     clearError: (state) => {
       state.error = null;
+    },
+    setApplicantFilters: (
+      state,
+      action: PayloadAction<Partial<IAttributedApplicantsFilters>>,
+    ) => {
+      state.applicantFilters = {
+        ...state.applicantFilters,
+        ...action.payload,
+        page: action.payload.page ?? 1,
+      };
+    },
+    setApplicantPage: (state, action: PayloadAction<number>) => {
+      state.applicantFilters.page = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -505,6 +605,38 @@ export const campaignSlice = createSlice({
         state.isLoadingAnalytics = false;
         state.error = action.payload || "Failed to fetch analytics";
       });
+
+    // Analytics Overview
+    builder
+      .addCase(fetchAnalyticsOverview.pending, (state) => {
+        state.isLoadingAnalyticsOverview = true;
+        state.error = null;
+      })
+      .addCase(fetchAnalyticsOverview.fulfilled, (state, action) => {
+        state.isLoadingAnalyticsOverview = false;
+        state.analyticsOverview = action.payload;
+      })
+      .addCase(fetchAnalyticsOverview.rejected, (state, action) => {
+        state.isLoadingAnalyticsOverview = false;
+        state.error = action.payload || "Failed to fetch analytics overview";
+      });
+
+    // Attributed Applicants
+    builder
+      .addCase(fetchAttributedApplicants.pending, (state) => {
+        state.isLoadingAttributedApplicants = true;
+        state.error = null;
+      })
+      .addCase(fetchAttributedApplicants.fulfilled, (state, action) => {
+        state.isLoadingAttributedApplicants = false;
+        state.attributedApplicants = action.payload.applicants;
+        state.attributedApplicantsPagination = action.payload.pagination;
+        state.attributedApplicantsSummary = action.payload.summary;
+      })
+      .addCase(fetchAttributedApplicants.rejected, (state, action) => {
+        state.isLoadingAttributedApplicants = false;
+        state.error = action.payload || "Failed to fetch attributed candidates";
+      });
   },
 });
 
@@ -512,10 +644,14 @@ export const {
   setSearchQuery,
   setFilterPlatform,
   setFilterStatus,
+  setAnalyticsFilters,
+  setActiveTab,
   setSelectedCampaign,
   clearSelectedCampaign,
   clearGeneratedLink,
   clearError,
+  setApplicantFilters,
+  setApplicantPage,
 } = campaignSlice.actions;
 
 export default campaignSlice.reducer;

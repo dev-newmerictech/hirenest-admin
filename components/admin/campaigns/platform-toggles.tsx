@@ -132,13 +132,14 @@ export function PlatformToggles({
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {platforms.map((p) => {
           const breakdown = (
-            summary?.platformBreakdown ||
-            (summary as any)?.platforms ||
-            []
-          ).find(
-            (b: any) =>
-              b?.platform?.toLowerCase() === p.platform?.toLowerCase(),
-          );
+            (
+              summary?.platformBreakdown ||
+              (summary as any)?.platforms ||
+              []
+            ).find(
+              (b: any) =>
+                b?.platform?.toLowerCase() === p.platform?.toLowerCase(),
+            );
 
           return (
             <div

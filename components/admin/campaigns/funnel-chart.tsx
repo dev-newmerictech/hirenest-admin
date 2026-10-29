@@ -41,7 +41,7 @@ const funnelChartConfig = {
     color: "#818cf8",
   },
   leads: {
-    label: "Leads",
+    label: "Sign-ups",
     color: "#4241FF",
   },
   applications: {
@@ -65,7 +65,7 @@ export function FunnelChart({
       fill: "#818cf8",
     },
     {
-      stage: "Fast-Track Leads",
+      stage: "Sign-ups",
       count: leads,
       conversion:
         impressions > 0 ? `${((leads / impressions) * 100).toFixed(1)}%` : "0%",

@@ -31,6 +31,7 @@ import { CreateCampaignDrawer } from "@/components/admin/campaigns/create-campai
 import { CampaignSuccessDialog } from "@/components/admin/campaigns/campaign-success-dialog";
 import { LinkGeneratorDialog } from "@/components/admin/campaigns/link-generator-dialog";
 import { CampaignDetailDrawer } from "@/components/admin/campaigns/campaign-detail-drawer";
+import { CampaignAnalyticsView } from "@/components/admin/campaigns/campaign-analytics-view";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
@@ -39,14 +40,16 @@ import {
   fetchPlatforms,
   fetchCampaigns,
   fetchCampaign,
+  fetchAnalyticsOverview,
   updateCampaignThunk,
   setSearchQuery,
   setFilterPlatform,
   setFilterStatus,
+  setActiveTab,
 } from "@/lib/store/campaignSlice";
 import { fetchAllJobPosts } from "@/lib/store/jobPostsSlice";
 import { Campaign } from "@/lib/api/campaigns";
-import { Plus, Link2, Eye, Sparkles } from "lucide-react";
+import { Plus, Link2, Eye, Sparkles, BarChart3, Layers } from "lucide-react";
 
 export default function CampaignsPage() {
   const dispatch = useAppDispatch();
@@ -62,6 +65,7 @@ export default function CampaignsPage() {
     searchQuery,
     filterPlatform,
     filterStatus,
+    activeTab,
   } = useAppSelector((state) => state.campaigns);
 
   const { allJobPosts } = useAppSelector((state) => state.jobPosts);
@@ -88,6 +92,7 @@ export default function CampaignsPage() {
     dispatch(fetchCampaignSummary());
     dispatch(fetchPlatforms());
     dispatch(fetchAllJobPosts());
+    dispatch(fetchAnalyticsOverview());
   }, [dispatch]);
 
   // Fetch campaigns on filter/page change
@@ -237,7 +242,7 @@ export default function CampaignsPage() {
     },
     {
       key: "leadsCount",
-      label: "Leads",
+      label: "Sign-ups",
       render: (item) => {
         const rate =
           item.impressionsCount > 0
@@ -328,153 +333,188 @@ export default function CampaignsPage() {
             </div>
           </div>
 
-          {/* Top KPI Stats */}
-          <CampaignStats summary={summary} isLoading={isLoadingSummary} />
-
-          {/* Platform Channel Switches */}
-          <PlatformToggles
-            platforms={platforms}
-            summary={summary}
-            isLoading={isLoadingPlatforms}
-          />
-
-          {/* Campaigns Table Section */}
-          <div className="space-y-4">
-            {/* Filters Row */}
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="flex-1">
-                <SearchBar
-                  placeholder="Search campaigns by name or code..."
-                  value={searchQuery}
-                  onChange={(val) => {
-                    dispatch(setSearchQuery(val));
-                    setCurrentPage(1);
-                  }}
-                />
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Platform Filter */}
-                <Select
-                  value={filterPlatform}
-                  onValueChange={(val) => {
-                    dispatch(setFilterPlatform(val));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[140px] text-xs h-10">
-                    <SelectValue placeholder="All Channels" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Channels</SelectItem>
-                    {platforms.map((p) => (
-                      <SelectItem key={p.platform} value={p.platform}>
-                        {p.displayName || p.platform}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {/* Status Filter */}
-                <Select
-                  value={filterStatus}
-                  onValueChange={(val) => {
-                    dispatch(setFilterStatus(val));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[120px] text-xs h-10">
-                    <SelectValue placeholder="All Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Status</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="paused">Paused</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Table */}
-            {isLoadingCampaigns ? (
-              <div className="rounded-md border border-border bg-card p-8 text-center text-muted-foreground text-sm">
-                Loading marketing campaigns...
-              </div>
-            ) : (
-              <>
-                <DataTable
-                  columns={columns}
-                  data={campaigns}
-                  onRowClick={handleRowClick}
-                  emptyMessage="No marketing campaigns found. Create your first campaign above."
-                />
-
-                {/* Pagination */}
-                {pagination && pagination.totalPages > 1 && (
-                  <div className="flex items-center justify-between pt-2">
-                    <p className="text-xs text-muted-foreground">
-                      Showing {(pagination.page - 1) * pagination.limit + 1} to{" "}
-                      {Math.min(
-                        pagination.page * pagination.limit,
-                        pagination.total,
-                      )}{" "}
-                      of {pagination.total} campaigns
-                    </p>
-
-                    <Pagination>
-                      <PaginationContent>
-                        <PaginationItem>
-                          <PaginationPrevious
-                            onClick={() => {
-                              if (pagination.page > 1)
-                                handlePageChange(pagination.page - 1);
-                            }}
-                            className={
-                              pagination.page === 1
-                                ? "pointer-events-none opacity-50"
-                                : "cursor-pointer"
-                            }
-                          />
-                        </PaginationItem>
-
-                        {getPageNumbers().map((pageNum, idx) => (
-                          <PaginationItem key={idx}>
-                            {pageNum === "ellipsis" ? (
-                              <PaginationEllipsis />
-                            ) : (
-                              <PaginationLink
-                                onClick={() => handlePageChange(pageNum)}
-                                isActive={pageNum === pagination.page}
-                                className="cursor-pointer"
-                              >
-                                {pageNum}
-                              </PaginationLink>
-                            )}
-                          </PaginationItem>
-                        ))}
-
-                        <PaginationItem>
-                          <PaginationNext
-                            onClick={() => {
-                              if (pagination.page < pagination.totalPages) {
-                                handlePageChange(pagination.page + 1);
-                              }
-                            }}
-                            className={
-                              pagination.page === pagination.totalPages
-                                ? "pointer-events-none opacity-50"
-                                : "cursor-pointer"
-                            }
-                          />
-                        </PaginationItem>
-                      </PaginationContent>
-                    </Pagination>
-                  </div>
-                )}
-              </>
-            )}
+          {/* Sub-Tabs Navigation */}
+          <div className="flex items-center gap-2 border-b border-border pb-3">
+            <button
+              type="button"
+              onClick={() => dispatch(setActiveTab("campaigns"))}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                activeTab === "campaigns"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              <Layers className="h-3.5 w-3.5" />
+              <span>Campaigns & Acquisition Links</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => dispatch(setActiveTab("analytics"))}
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                activeTab === "analytics"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+              }`}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              <span>Analytics & Conversion Funnels</span>
+            </button>
           </div>
+
+          {activeTab === "analytics" ? (
+            <CampaignAnalyticsView />
+          ) : (
+            <>
+              {/* Top KPI Stats */}
+              <CampaignStats summary={summary} isLoading={isLoadingSummary} />
+
+              {/* Platform Channel Switches */}
+              <PlatformToggles
+                platforms={platforms}
+                summary={summary}
+                isLoading={isLoadingPlatforms}
+              />
+
+              {/* Campaigns Table Section */}
+              <div className="space-y-4">
+                {/* Filters Row */}
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <div className="flex-1">
+                    <SearchBar
+                      placeholder="Search campaigns by name or code..."
+                      value={searchQuery}
+                      onChange={(val) => {
+                        dispatch(setSearchQuery(val));
+                        setCurrentPage(1);
+                      }}
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {/* Platform Filter */}
+                    <Select
+                      value={filterPlatform}
+                      onValueChange={(val) => {
+                        dispatch(setFilterPlatform(val));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-[140px] text-xs h-10">
+                        <SelectValue placeholder="All Channels" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Channels</SelectItem>
+                        {platforms.map((p) => (
+                          <SelectItem key={p.platform} value={p.platform}>
+                            {p.displayName || p.platform}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {/* Status Filter */}
+                    <Select
+                      value={filterStatus}
+                      onValueChange={(val) => {
+                        dispatch(setFilterStatus(val));
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="w-[120px] text-xs h-10">
+                        <SelectValue placeholder="All Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Status</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="paused">Paused</SelectItem>
+                        <SelectItem value="expired">Expired</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Table */}
+                {isLoadingCampaigns ? (
+                  <div className="rounded-md border border-border bg-card p-8 text-center text-muted-foreground text-sm">
+                    Loading marketing campaigns...
+                  </div>
+                ) : (
+                  <>
+                    <DataTable
+                      columns={columns}
+                      data={campaigns}
+                      onRowClick={handleRowClick}
+                      emptyMessage="No marketing campaigns found. Create your first campaign above."
+                    />
+
+                    {/* Pagination */}
+                    {pagination && pagination.totalPages > 1 && (
+                      <div className="flex items-center justify-between pt-2">
+                        <p className="text-xs text-muted-foreground">
+                          Showing {(pagination.page - 1) * pagination.limit + 1}{" "}
+                          to{" "}
+                          {Math.min(
+                            pagination.page * pagination.limit,
+                            pagination.total,
+                          )}{" "}
+                          of {pagination.total} campaigns
+                        </p>
+
+                        <Pagination>
+                          <PaginationContent>
+                            <PaginationItem>
+                              <PaginationPrevious
+                                onClick={() => {
+                                  if (pagination.page > 1)
+                                    handlePageChange(pagination.page - 1);
+                                }}
+                                className={
+                                  pagination.page === 1
+                                    ? "pointer-events-none opacity-50"
+                                    : "cursor-pointer"
+                                }
+                              />
+                            </PaginationItem>
+
+                            {getPageNumbers().map((pageNum, idx) => (
+                              <PaginationItem key={idx}>
+                                {pageNum === "ellipsis" ? (
+                                  <PaginationEllipsis />
+                                ) : (
+                                  <PaginationLink
+                                    onClick={() => handlePageChange(pageNum)}
+                                    isActive={pageNum === pagination.page}
+                                    className="cursor-pointer"
+                                  >
+                                    {pageNum}
+                                  </PaginationLink>
+                                )}
+                              </PaginationItem>
+                            ))}
+
+                            <PaginationItem>
+                              <PaginationNext
+                                onClick={() => {
+                                  if (pagination.page < pagination.totalPages) {
+                                    handlePageChange(pagination.page + 1);
+                                  }
+                                }}
+                                className={
+                                  pagination.page === pagination.totalPages
+                                    ? "pointer-events-none opacity-50"
+                                    : "cursor-pointer"
+                                }
+                              />
+                            </PaginationItem>
+                          </PaginationContent>
+                        </Pagination>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Dialogs & Drawers */}
           <CreateCampaignDrawer
