@@ -150,7 +150,7 @@ export function FunnelChart({
             </div>
             <div className="p-2 rounded bg-muted/40">
               <span className="text-[11px] text-muted-foreground block">
-                Lead Conv.
+                Sign-up Conv.
               </span>
               <span className="text-lg font-bold text-primary">
                 {impressions > 0

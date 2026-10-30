@@ -159,7 +159,7 @@ export function PlatformToggles({
               <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/50 pt-2">
                 <span>{breakdown?.campaignsCount ?? 0} campaigns</span>
                 <span className="font-semibold text-foreground">
-                  {breakdown?.leadsCount ?? 0} leads
+                  {breakdown?.leadsCount ?? 0} sign-ups
                 </span>
               </div>
             </div>
