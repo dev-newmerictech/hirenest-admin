@@ -39,6 +39,7 @@ import {
   fetchCampaignSummary,
   fetchPlatforms,
   fetchCampaigns,
+  fetchAllCampaigns,
   fetchCampaign,
   fetchAnalyticsOverview,
   updateCampaignThunk,
@@ -93,6 +94,7 @@ export default function CampaignsPage() {
     dispatch(fetchPlatforms());
     dispatch(fetchAllJobPosts());
     dispatch(fetchAnalyticsOverview());
+    dispatch(fetchAllCampaigns());
   }, [dispatch]);
 
   // Fetch campaigns on filter/page change

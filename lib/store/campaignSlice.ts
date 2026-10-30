@@ -22,6 +22,7 @@ interface CampaignState {
   summary: GlobalDashboardSummary | null;
   platforms: PlatformSetting[];
   campaigns: Campaign[];
+  allCampaigns: Campaign[];
   selectedCampaign: Campaign | null;
   selectedCampaignAnalytics: CampaignAnalytics | null;
   analyticsOverview: IGlobalAnalyticsOverviewResponse | null;
@@ -66,6 +67,7 @@ const initialState: CampaignState = {
   summary: null,
   platforms: [],
   campaigns: [],
+  allCampaigns: [],
   selectedCampaign: null,
   selectedCampaignAnalytics: null,
   analyticsOverview: null,
@@ -206,6 +208,21 @@ export const fetchCampaigns = createAsyncThunk<
   } catch (error) {
     return rejectWithValue(
       error instanceof Error ? error.message : "Failed to fetch campaigns list",
+    );
+  }
+});
+
+export const fetchAllCampaigns = createAsyncThunk<
+  Campaign[],
+  void,
+  { rejectValue: string }
+>("campaigns/fetchAllCampaigns", async (_, { rejectWithValue }) => {
+  try {
+    const res = await campaignsApi.listCampaigns({ page: 1, limit: 100 });
+    return res.items || [];
+  } catch (error) {
+    return rejectWithValue(
+      error instanceof Error ? error.message : "Failed to fetch all campaigns",
     );
   }
 });
@@ -477,6 +494,9 @@ export const campaignSlice = createSlice({
       .addCase(fetchCampaigns.rejected, (state, action) => {
         state.isLoadingCampaigns = false;
         state.error = action.payload || "Failed to fetch campaigns";
+      })
+      .addCase(fetchAllCampaigns.fulfilled, (state, action) => {
+        state.allCampaigns = action.payload;
       });
 
     // Single campaign

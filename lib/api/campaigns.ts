@@ -321,6 +321,10 @@ export const campaignsApi = {
       params.set("status", filters.status);
     if (filters?.jobPostId && filters.jobPostId !== "all")
       params.set("jobPostId", filters.jobPostId);
+    if (filters?.campaignCode && filters.campaignCode !== "all")
+      params.set("campaignCode", filters.campaignCode);
+    if (filters?.campaignId && filters.campaignId !== "all")
+      params.set("campaignId", filters.campaignId);
 
     const query = params.toString() ? `?${params.toString()}` : "";
     const res = await apiClient<{
@@ -409,6 +413,8 @@ export interface IAnalyticsOverviewFilters {
   platform?: string;
   status?: string;
   jobPostId?: string;
+  campaignCode?: string;
+  campaignId?: string;
 }
 
 export interface IAttributedApplicantsFilters {

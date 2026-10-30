@@ -20,6 +20,7 @@ import { Calendar, Download, Filter, RefreshCw, X } from "lucide-react";
 import {
   PlatformSetting,
   IAnalyticsOverviewFilters,
+  Campaign,
 } from "@/lib/api/campaigns";
 import { Job } from "@/lib/types";
 
@@ -29,6 +30,7 @@ interface CampaignAnalyticsFiltersProps {
   onReset: () => void;
   platforms: PlatformSetting[];
   jobs: Job[];
+  campaigns?: Campaign[];
   onExport: () => void;
   isLoading?: boolean;
 }
@@ -39,6 +41,7 @@ export function CampaignAnalyticsFilters({
   onReset,
   platforms,
   jobs,
+  campaigns,
   onExport,
   isLoading,
 }: CampaignAnalyticsFiltersProps) {
@@ -272,10 +275,38 @@ export function CampaignAnalyticsFilters({
           </SelectContent>
         </Select>
 
+        {/* Campaign Select */}
+        <Select
+          value={filters.campaignCode || filters.campaignId || "all"}
+          onValueChange={(val) => {
+            if (val === "all") {
+              onFilterChange({ campaignCode: undefined, campaignId: undefined });
+            } else {
+              onFilterChange({ campaignCode: val, campaignId: undefined });
+            }
+          }}
+        >
+          <SelectTrigger className="w-[180px] text-xs h-8 bg-background">
+            <SelectValue placeholder="All Campaigns" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Campaigns</SelectItem>
+            {campaigns
+              ?.filter((c) => Boolean(c && c.campaignCode && c.campaignCode.trim()))
+              .map((c) => (
+                <SelectItem key={c.id || c.campaignCode} value={c.campaignCode}>
+                  {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+
         {/* Active Filter Clear Pill */}
         {(filters.platform !== "all" && filters.platform) ||
         (filters.status !== "all" && filters.status) ||
-        (filters.jobPostId !== "all" && filters.jobPostId) ? (
+        (filters.jobPostId !== "all" && filters.jobPostId) ||
+        (filters.campaignCode !== "all" && filters.campaignCode) ||
+        (filters.campaignId !== "all" && filters.campaignId) ? (
           <button
             type="button"
             onClick={onReset}

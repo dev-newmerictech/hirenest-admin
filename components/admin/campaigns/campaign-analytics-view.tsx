@@ -44,7 +44,12 @@ export function CampaignAnalyticsView() {
     analyticsFilters,
     platforms,
     campaigns,
+    allCampaigns,
   } = useAppSelector((state) => state.campaigns);
+
+  const effectiveCampaigns = useMemo(() => {
+    return allCampaigns && allCampaigns.length > 0 ? allCampaigns : campaigns;
+  }, [allCampaigns, campaigns]);
 
   const { allJobPosts } = useAppSelector((state) => state.jobPosts);
 
@@ -223,8 +228,8 @@ export function CampaignAnalyticsView() {
   };
 
   const sortedLeaderboard = useMemo(() => {
-    if (!campaigns) return [];
-    return [...campaigns].sort((a, b) => {
+    if (!effectiveCampaigns) return [];
+    return [...effectiveCampaigns].sort((a, b) => {
       let valA = 0;
       let valB = 0;
       const ctrA =
@@ -322,6 +327,7 @@ export function CampaignAnalyticsView() {
         onReset={handleResetFilters}
         platforms={platforms}
         jobs={allJobPosts}
+        campaigns={effectiveCampaigns}
         onExport={handleExport}
         isLoading={isLoadingAnalyticsOverview}
       />
