@@ -223,6 +223,34 @@ export function CampaignAnalyticsFilters({
           <span>Filters:</span>
         </div>
 
+        {/* Campaign Select (Primary Dimension) */}
+        <Select
+          value={filters.campaignCode || filters.campaignId || "all"}
+          onValueChange={(val) => {
+            if (val === "all") {
+              onFilterChange({ campaignCode: undefined, campaignId: undefined });
+            } else {
+              onFilterChange({ campaignCode: val, campaignId: undefined });
+            }
+          }}
+        >
+          <SelectTrigger className="w-[210px] text-xs h-8 bg-background border-primary/40 font-medium">
+            <SelectValue placeholder="All Campaigns (Combined)" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">
+              <span className="font-semibold">All Campaigns (Combined)</span>
+            </SelectItem>
+            {campaigns
+              ?.filter((c) => Boolean(c && c.campaignCode && c.campaignCode.trim()))
+              .map((c) => (
+                <SelectItem key={c.id || c.campaignCode} value={c.campaignCode}>
+                  {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+
         {/* Platform Channel Select */}
         <Select
           value={filters.platform || "all"}
@@ -272,32 +300,6 @@ export function CampaignAnalyticsFilters({
                 {j.title || "Untitled Job"}
               </SelectItem>
             ))}
-          </SelectContent>
-        </Select>
-
-        {/* Campaign Select */}
-        <Select
-          value={filters.campaignCode || filters.campaignId || "all"}
-          onValueChange={(val) => {
-            if (val === "all") {
-              onFilterChange({ campaignCode: undefined, campaignId: undefined });
-            } else {
-              onFilterChange({ campaignCode: val, campaignId: undefined });
-            }
-          }}
-        >
-          <SelectTrigger className="w-[180px] text-xs h-8 bg-background">
-            <SelectValue placeholder="All Campaigns" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Campaigns</SelectItem>
-            {campaigns
-              ?.filter((c) => Boolean(c && c.campaignCode && c.campaignCode.trim()))
-              .map((c) => (
-                <SelectItem key={c.id || c.campaignCode} value={c.campaignCode}>
-                  {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
-                </SelectItem>
-              ))}
           </SelectContent>
         </Select>
 

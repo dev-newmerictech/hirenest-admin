@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
   fetchAnalyticsOverview,
   setAnalyticsFilters,
+  setSelectedCampaignCode,
 } from "@/lib/store/campaignSlice";
 import { CampaignAnalyticsFilters } from "./campaign-analytics-filters";
 import { CampaignTimeseriesChart } from "./campaign-timeseries-chart";
@@ -83,11 +84,15 @@ export function CampaignAnalyticsView() {
   const handleFilterChange = (updates: Partial<IAnalyticsOverviewFilters>) => {
     const newFilters = { ...analyticsFilters, ...updates };
     dispatch(setAnalyticsFilters(newFilters));
+    if (updates.campaignCode !== undefined) {
+      dispatch(setSelectedCampaignCode(updates.campaignCode || "all"));
+    }
     dispatch(fetchAnalyticsOverview(newFilters));
   };
 
   const handleResetFilters = () => {
     const emptyFilters: IAnalyticsOverviewFilters = {};
+    dispatch(setSelectedCampaignCode("all"));
     dispatch(setAnalyticsFilters(emptyFilters));
     dispatch(fetchAnalyticsOverview(emptyFilters));
   };
@@ -96,7 +101,14 @@ export function CampaignAnalyticsView() {
     const dateStr = format(new Date(), "yyyy-MM-dd");
 
     if (viewMode === "campaigns") {
-      if (!campaigns || campaigns.length === 0) {
+      const sourceList =
+        analyticsFilters.campaignCode && analyticsFilters.campaignCode !== "all"
+          ? (effectiveCampaigns || []).filter(
+              (c) => c.campaignCode === analyticsFilters.campaignCode,
+            )
+          : effectiveCampaigns || campaigns;
+
+      if (!sourceList || sourceList.length === 0) {
         toast({
           title: "Export Notice",
           description: "No campaign analytics data available to export.",
@@ -105,7 +117,7 @@ export function CampaignAnalyticsView() {
         return;
       }
 
-      const flatData = campaigns.map((c: Campaign, idx: number) => {
+      const flatData = sourceList.map((c: Campaign, idx: number) => {
         const ctr =
           c.impressionsCount > 0
             ? ((c.leadsCount / c.impressionsCount) * 100).toFixed(1)
@@ -229,7 +241,16 @@ export function CampaignAnalyticsView() {
 
   const sortedLeaderboard = useMemo(() => {
     if (!effectiveCampaigns) return [];
-    return [...effectiveCampaigns].sort((a, b) => {
+    let list = [...effectiveCampaigns];
+    if (
+      analyticsFilters.campaignCode &&
+      analyticsFilters.campaignCode !== "all"
+    ) {
+      list = list.filter(
+        (c) => c.campaignCode === analyticsFilters.campaignCode,
+      );
+    }
+    return list.sort((a, b) => {
       let valA = 0;
       let valB = 0;
       const ctrA =
@@ -263,7 +284,12 @@ export function CampaignAnalyticsView() {
       }
       return sortDirection === "asc" ? valA - valB : valB - valA;
     });
-  }, [campaigns, sortField, sortDirection]);
+  }, [
+    effectiveCampaigns,
+    analyticsFilters.campaignCode,
+    sortField,
+    sortDirection,
+  ]);
 
   const sortedJobPosts = useMemo(() => {
     const list = analyticsOverview?.topRequisitions || [];

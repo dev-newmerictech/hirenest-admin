@@ -24,6 +24,7 @@ interface CampaignState {
   campaigns: Campaign[];
   allCampaigns: Campaign[];
   selectedCampaign: Campaign | null;
+  selectedCampaignCode: string;
   selectedCampaignAnalytics: CampaignAnalytics | null;
   analyticsOverview: IGlobalAnalyticsOverviewResponse | null;
   pagination: {
@@ -69,6 +70,7 @@ const initialState: CampaignState = {
   campaigns: [],
   allCampaigns: [],
   selectedCampaign: null,
+  selectedCampaignCode: "all",
   selectedCampaignAnalytics: null,
   analyticsOverview: null,
   pagination: null,
@@ -393,6 +395,19 @@ export const campaignSlice = createSlice({
       action: PayloadAction<Partial<IAnalyticsOverviewFilters>>,
     ) => {
       state.analyticsFilters = { ...state.analyticsFilters, ...action.payload };
+      if (action.payload.campaignCode !== undefined) {
+        state.selectedCampaignCode = action.payload.campaignCode || "all";
+      }
+    },
+    setSelectedCampaignCode: (state, action: PayloadAction<string>) => {
+      state.selectedCampaignCode = action.payload;
+      if (action.payload === "all" || !action.payload) {
+        const { campaignCode, campaignId, ...rest } = state.analyticsFilters;
+        state.analyticsFilters = rest;
+      } else {
+        const { campaignId, ...rest } = state.analyticsFilters;
+        state.analyticsFilters = { ...rest, campaignCode: action.payload };
+      }
     },
     setActiveTab: (state, action: PayloadAction<"campaigns" | "analytics">) => {
       state.activeTab = action.payload;
@@ -403,6 +418,9 @@ export const campaignSlice = createSlice({
     clearSelectedCampaign: (state) => {
       state.selectedCampaign = null;
       state.selectedCampaignAnalytics = null;
+      state.selectedCampaignCode = "all";
+      const { campaignCode, campaignId, ...rest } = state.analyticsFilters;
+      state.analyticsFilters = rest;
     },
     clearGeneratedLink: (state) => {
       state.generatedTrackingLink = null;
@@ -667,6 +685,7 @@ export const {
   setAnalyticsFilters,
   setActiveTab,
   setSelectedCampaign,
+  setSelectedCampaignCode,
   clearSelectedCampaign,
   clearGeneratedLink,
   clearError,
