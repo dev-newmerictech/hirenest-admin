@@ -51,10 +51,10 @@ export function CampaignStats({
           description={selectedCampaign.name || selectedCampaign.campaignCode}
         />
         <StatCard
-          title="Impressions"
+          title="Visitors"
           value={totalImpressions.toLocaleString()}
           icon={Eye}
-          description={`Gate visits on ${selectedCampaign.platform.toUpperCase()}`}
+          description={`Came in via ${selectedCampaign.platform.toUpperCase()}`}
         />
         <StatCard
           title="Sign-ups"
@@ -98,10 +98,10 @@ export function CampaignStats({
         description={`${totalCampaigns} total registered (Collective)`}
       />
       <StatCard
-        title="Impressions"
+        title="Visitors"
         value={totalImpressions.toLocaleString()}
         icon={Eye}
-        description="Gate visits across platforms (Collective)"
+        description="Came in across platforms (Collective)"
       />
       <StatCard
         title="Sign-ups"

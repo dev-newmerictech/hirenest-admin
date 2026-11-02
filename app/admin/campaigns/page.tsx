@@ -48,6 +48,7 @@ import {
   setFilterStatus,
   setSelectedCampaignCode,
   setActiveTab,
+  fetchAttributedApplicants,
 } from "@/lib/store/campaignSlice";
 import { fetchAllJobPosts } from "@/lib/store/jobPostsSlice";
 import { Campaign } from "@/lib/api/campaigns";
@@ -310,7 +311,7 @@ export default function CampaignsPage() {
     },
     {
       key: "impressionsCount",
-      label: "Impressions",
+      label: "Visitors",
       render: (item) => (
         <span className="font-mono text-xs">
           {item.impressionsCount.toLocaleString()}
@@ -701,7 +702,7 @@ export default function CampaignsPage() {
           <LinkGeneratorDialog
             open={isLinkGenOpen}
             onOpenChange={setIsLinkGenOpen}
-            campaigns={campaigns}
+            campaigns={campaignOptions}
             jobs={allJobPosts}
             defaultCampaign={selectedCampaignForLink}
           />

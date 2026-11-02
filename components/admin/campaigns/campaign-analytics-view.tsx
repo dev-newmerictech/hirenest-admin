@@ -6,6 +6,8 @@ import {
   fetchAnalyticsOverview,
   setAnalyticsFilters,
   setSelectedCampaignCode,
+  fetchAttributedApplicants,
+  setApplicantFilters,
 } from "@/lib/store/campaignSlice";
 import { CampaignAnalyticsFilters } from "./campaign-analytics-filters";
 import { CampaignTimeseriesChart } from "./campaign-timeseries-chart";
@@ -46,6 +48,7 @@ export function CampaignAnalyticsView() {
     platforms,
     campaigns,
     allCampaigns,
+    applicantFilters,
   } = useAppSelector((state) => state.campaigns);
 
   const effectiveCampaigns = useMemo(() => {
@@ -85,7 +88,8 @@ export function CampaignAnalyticsView() {
     const newFilters = { ...analyticsFilters, ...updates };
     dispatch(setAnalyticsFilters(newFilters));
     if (updates.campaignCode !== undefined) {
-      dispatch(setSelectedCampaignCode(updates.campaignCode || "all"));
+      const code = updates.campaignCode || "all";
+      dispatch(setSelectedCampaignCode(code));
     }
     dispatch(fetchAnalyticsOverview(newFilters));
   };
@@ -360,11 +364,11 @@ export function CampaignAnalyticsView() {
 
       {/* High-Impact Marketing KPI Ribbons */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Total Impressions */}
+        {/* Visitors Came In */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Impressions</span>
+              <span className="text-xs font-medium">Visitors Came In</span>
               <Eye className="h-3.5 w-3.5 text-indigo-500" />
             </div>
             <div className="text-xl font-bold font-mono text-foreground">
@@ -375,27 +379,7 @@ export function CampaignAnalyticsView() {
               )}
             </div>
             <div className="text-[11px] text-muted-foreground mt-1">
-              Gate impressions & traffic
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Job Views */}
-        <Card className="border-border/70 shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Page Views</span>
-              <Activity className="h-3.5 w-3.5 text-sky-500" />
-            </div>
-            <div className="text-xl font-bold font-mono text-foreground">
-              {isLoadingAnalyticsOverview ? (
-                <div className="h-6 w-16 bg-muted/60 animate-pulse rounded" />
-              ) : (
-                (kpis?.totalJobViews || 0).toLocaleString()
-              )}
-            </div>
-            <div className="text-[11px] text-muted-foreground mt-1">
-              Job specification visits
+              Arrived via campaign link
             </div>
           </CardContent>
         </Card>
@@ -415,12 +399,12 @@ export function CampaignAnalyticsView() {
               )}
             </div>
             <div className="text-[11px] text-muted-foreground mt-1">
-              Verified campaign registrations
+              Candidate accounts registered
             </div>
           </CardContent>
         </Card>
 
-        {/* Total Applications */}
+        {/* Applications */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
@@ -435,27 +419,47 @@ export function CampaignAnalyticsView() {
               )}
             </div>
             <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-              Verified ATS candidates
+              Job applications submitted
             </div>
           </CardContent>
         </Card>
 
-        {/* Overall Blended Conversion Rate */}
+        {/* Sign-up CVR */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Blended CVR</span>
+              <span className="text-xs font-medium">Sign-up CVR</span>
+              <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-foreground">
+              {isLoadingAnalyticsOverview ? (
+                <div className="h-6 w-16 bg-muted/60 animate-pulse rounded" />
+              ) : (
+                `${(kpis?.totalImpressions || 0) > 0 ? (((kpis?.totalLeads || 0) / (kpis?.totalImpressions || 1)) * 100).toFixed(1) : "0.0"}%`
+              )}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Visitors who registered
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Application Yield */}
+        <Card className="border-border/70 shadow-xs">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-muted-foreground mb-1.5">
+              <span className="text-xs font-medium">Application Yield</span>
               <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
             </div>
             <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
               {isLoadingAnalyticsOverview ? (
                 <div className="h-6 w-16 bg-muted/60 animate-pulse rounded" />
               ) : (
-                `${kpis?.blendedConversionRate || 0}%`
+                `${(kpis?.totalLeads || 0) > 0 ? (((kpis?.totalApplications || 0) / (kpis?.totalLeads || 1)) * 100).toFixed(1) : "0.0"}%`
               )}
             </div>
             <div className="text-[11px] text-muted-foreground mt-1">
-              Impression-to-App yield
+              Sign-ups who submitted application
             </div>
           </CardContent>
         </Card>

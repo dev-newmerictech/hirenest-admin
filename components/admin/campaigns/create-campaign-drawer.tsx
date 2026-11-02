@@ -156,10 +156,12 @@ export function CreateCampaignDrawer({
       dispatch(fetchCampaigns({ page: 1, limit: 10 }));
       dispatch(fetchCampaignSummary());
 
+      const finalTrackingUrl = `https://app.hirenest.ai/jobs/${selectedJobId}?utm_source=${createdCampaign.platform}&utm_campaign=${createdCampaign.campaignCode}&utm_medium=fast-track`;
+
       onOpenChange(false);
       onSuccess({
         campaign: createdCampaign,
-        trackingUrl: livePreviewUrl,
+        trackingUrl: finalTrackingUrl,
       });
     } catch (err: any) {
       toast({

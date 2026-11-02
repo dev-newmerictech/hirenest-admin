@@ -397,10 +397,14 @@ export const campaignSlice = createSlice({
       state.analyticsFilters = { ...state.analyticsFilters, ...action.payload };
       if (action.payload.campaignCode !== undefined) {
         state.selectedCampaignCode = action.payload.campaignCode || "all";
+        state.applicantFilters.campaignCode = action.payload.campaignCode || "all";
+        state.applicantFilters.page = 1;
       }
     },
     setSelectedCampaignCode: (state, action: PayloadAction<string>) => {
       state.selectedCampaignCode = action.payload;
+      state.applicantFilters.campaignCode = action.payload || "all";
+      state.applicantFilters.page = 1;
       if (action.payload === "all" || !action.payload) {
         const { campaignCode, campaignId, ...rest } = state.analyticsFilters;
         state.analyticsFilters = rest;

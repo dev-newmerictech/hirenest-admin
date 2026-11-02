@@ -16,6 +16,8 @@ import {
   updateCampaignThunk,
   fetchCampaign,
   fetchCampaignAnalyticsThunk,
+  setSelectedCampaignCode,
+  setActiveTab,
 } from "@/lib/store/campaignSlice";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -29,6 +31,7 @@ import {
   Building2,
   Sparkles,
   Link2,
+  BarChart3,
 } from "lucide-react";
 
 interface CampaignDetailDrawerProps {
@@ -217,6 +220,19 @@ export function CampaignDetailDrawer({
             <Button
               variant="outline"
               size="sm"
+              onClick={() => {
+                onOpenChange(false);
+                dispatch(setSelectedCampaignCode(activeCampaign.campaignCode));
+                dispatch(setActiveTab("analytics"));
+              }}
+              className="gap-1.5 text-xs h-8 shrink-0 border-primary/40 text-primary hover:bg-primary/5"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              View Analytics & Candidates
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => onEditCampaign(activeCampaign)}
               className="gap-1.5 text-xs h-8 shrink-0"
             >
@@ -369,7 +385,7 @@ export function CampaignDetailDrawer({
                     <div className="grid grid-cols-4 gap-2 pt-1 border-t border-border/40 text-[11px] font-mono">
                       <div className="bg-muted/30 rounded p-1.5 text-center">
                         <div className="text-[9px] text-muted-foreground uppercase font-sans">
-                          Impressions
+                          Visitors
                         </div>
                         <div className="font-semibold text-foreground">
                           {(binding.impressionsCount ?? 0).toLocaleString()}

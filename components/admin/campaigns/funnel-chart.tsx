@@ -37,7 +37,7 @@ const funnelChartConfig = {
     color: "hsl(var(--primary))",
   },
   impressions: {
-    label: "Impressions",
+    label: "Visitors Came In",
     color: "#818cf8",
   },
   leads: {
@@ -59,20 +59,20 @@ export function FunnelChart({
 }: FunnelChartProps) {
   const funnelData = [
     {
-      stage: "Impressions",
+      stage: "1. Visitors Came In",
       count: impressions,
       conversion: "100%",
       fill: "#818cf8",
     },
     {
-      stage: "Sign-ups",
+      stage: "2. Sign-ups",
       count: leads,
       conversion:
         impressions > 0 ? `${((leads / impressions) * 100).toFixed(1)}%` : "0%",
       fill: "#4241FF",
     },
     {
-      stage: "Applications",
+      stage: "3. Applications",
       count: applications,
       conversion:
         leads > 0 ? `${((applications / leads) * 100).toFixed(1)}%` : "0%",
