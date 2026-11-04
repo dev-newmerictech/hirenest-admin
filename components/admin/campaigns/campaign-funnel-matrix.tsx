@@ -31,7 +31,7 @@ const STAGE_CONFIGS: Record<
   },
   2: {
     label: "3. Sign-ups",
-    description: "Candidates registered and authenticated",
+    description: "Candidates entering phone, email, or uploading resume",
     barColor: "bg-amber-500",
     bgAccent:
       "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
