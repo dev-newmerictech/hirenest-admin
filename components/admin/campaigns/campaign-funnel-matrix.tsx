@@ -12,25 +12,29 @@ interface CampaignFunnelMatrixProps {
   isLoading?: boolean;
 }
 
-const STAGE_CONFIGS: Record<
-  number,
-  { label: string; description: string; barColor: string; bgAccent: string }
-> = {
-  0: {
+interface StageConfig {
+  label: string;
+  description: string;
+  barColor: string;
+  bgAccent: string;
+}
+
+const CANONICAL_STAGE_CONFIGS: Record<string, StageConfig> = {
+  visitors: {
     label: "1. Visitors Came In",
     description: "Traffic arrivals via campaign link",
     barColor: "bg-indigo-500",
     bgAccent:
       "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   },
-  1: {
+  signups: {
     label: "2. Sign-ups",
     description: "Candidates registered via this campaign",
     barColor: "bg-amber-500",
     bgAccent:
       "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
-  2: {
+  applications: {
     label: "3. Applications",
     description: "Job applications submitted via this campaign",
     barColor: "bg-emerald-500",
@@ -38,6 +42,36 @@ const STAGE_CONFIGS: Record<
       "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
   },
 };
+
+function resolveStageConfig(stageName: string, idx: number): StageConfig {
+  const normalized = (stageName || "").toLowerCase();
+  if (normalized.includes("visitor") || normalized.includes("impression")) {
+    return CANONICAL_STAGE_CONFIGS.visitors;
+  }
+  if (
+    normalized.includes("sign-up") ||
+    normalized.includes("signup") ||
+    normalized.includes("lead")
+  ) {
+    return CANONICAL_STAGE_CONFIGS.signups;
+  }
+  if (
+    normalized.includes("application") ||
+    normalized.includes("apply")
+  ) {
+    return CANONICAL_STAGE_CONFIGS.applications;
+  }
+  const fallbackKey =
+    idx === 0 ? "visitors" : idx === 1 ? "signups" : "applications";
+  return (
+    CANONICAL_STAGE_CONFIGS[fallbackKey] || {
+      label: stageName || `Stage ${idx + 1}`,
+      description: "",
+      barColor: "bg-primary",
+      bgAccent: "bg-primary/10 text-primary border-primary/20",
+    }
+  );
+}
 
 export function CampaignFunnelMatrix({
   funnel,
@@ -63,7 +97,22 @@ export function CampaignFunnelMatrix({
     );
   }
 
-  const stages = funnel && funnel.length > 0 ? funnel : [];
+  // Normalize incoming stages: if legacy 4-stage format arrives, keep canonical 3 stages
+  const stages = React.useMemo(() => {
+    if (!funnel || funnel.length === 0) return [];
+    if (funnel.length > 3) {
+      const visitors = funnel.find((s) => /visitor|impression/i.test(s.stage));
+      const signups = funnel.find((s) => /sign-up|signup|lead/i.test(s.stage));
+      const applications = funnel.find((s) =>
+        /application|apply/i.test(s.stage)
+      );
+      if (visitors && signups && applications) {
+        return [visitors, signups, applications];
+      }
+    }
+    return funnel;
+  }, [funnel]);
+
   const topImpressionCount = stages[0]?.count || 0;
   const bottomAppCount = stages[stages.length - 1]?.count || 0;
   const overallEfficiency =
@@ -96,12 +145,7 @@ export function CampaignFunnelMatrix({
 
       <CardContent className="pt-4 space-y-4 flex-1 flex flex-col justify-around">
         {stages.map((stage, idx) => {
-          const config = STAGE_CONFIGS[idx] || {
-            label: stage.stage,
-            description: "",
-            barColor: "bg-primary",
-            bgAccent: "bg-primary/10 text-primary border-primary/20",
-          };
+          const config = resolveStageConfig(stage.stage, idx);
 
           const widthPercent =
             topImpressionCount > 0
@@ -112,7 +156,7 @@ export function CampaignFunnelMatrix({
               : 0;
 
           return (
-            <div key={stage.stage} className="space-y-1.5">
+            <div key={stage.stage || idx} className="space-y-1.5">
               <div className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-foreground">

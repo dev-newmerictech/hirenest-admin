@@ -45,12 +45,23 @@ export function CampaignAnalyticsFilters({
   onExport,
   isLoading,
 }: CampaignAnalyticsFiltersProps) {
-  const [activePreset, setActivePreset] = useState<string>("30d");
+  const [activePreset, setActivePreset] = useState<string>(() => {
+    if (!filters.startDate && !filters.endDate) return "all";
+    return "30d";
+  });
   const [customStart, setCustomStart] = useState<string>(
     filters.startDate || "",
   );
   const [customEnd, setCustomEnd] = useState<string>(filters.endDate || "");
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+  React.useEffect(() => {
+    if (!filters.startDate && !filters.endDate) {
+      setActivePreset("all");
+      setCustomStart("");
+      setCustomEnd("");
+    }
+  }, [filters.startDate, filters.endDate]);
 
   const handlePresetSelect = (
     preset: "today" | "7d" | "30d" | "90d" | "all",
