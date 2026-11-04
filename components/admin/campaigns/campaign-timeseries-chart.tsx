@@ -91,6 +91,13 @@ export function CampaignTimeseriesChart({
             <p className="text-xs text-muted-foreground">
               Volume trajectory across funnel checkpoints over time
             </p>
+            {seriesData.length === 1 && (
+              <div className="flex items-center gap-2 pt-1">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-muted text-muted-foreground border border-border">
+                  Single-day checkpoint: {seriesData[0].leads} Sign-ups • {seriesData[0].applications} Applications
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Interactive Metric Filter Toggles */}
@@ -191,6 +198,7 @@ export function CampaignTimeseriesChart({
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
+                  padding={{ left: 24, right: 24 }}
                   tickFormatter={(val) => {
                     try {
                       return format(parseISO(val), "MMM dd");
@@ -231,6 +239,12 @@ export function CampaignTimeseriesChart({
                     stroke="#6366f1"
                     strokeWidth={2}
                     fill="url(#fillImpressions)"
+                    dot={
+                      seriesData.length <= 1
+                        ? { r: 5, strokeWidth: 2, fill: "#6366f1" }
+                        : { r: 2.5, strokeWidth: 1 }
+                    }
+                    activeDot={{ r: 6, strokeWidth: 2 }}
                   />
                 )}
                 {activeSeries.leads && (
@@ -240,6 +254,12 @@ export function CampaignTimeseriesChart({
                     stroke="#f59e0b"
                     strokeWidth={2}
                     fill="url(#fillLeads)"
+                    dot={
+                      seriesData.length <= 1
+                        ? { r: 5, strokeWidth: 2, fill: "#f59e0b" }
+                        : { r: 2.5, strokeWidth: 1 }
+                    }
+                    activeDot={{ r: 6, strokeWidth: 2 }}
                   />
                 )}
                 {activeSeries.applications && (
@@ -249,6 +269,12 @@ export function CampaignTimeseriesChart({
                     stroke="#10b981"
                     strokeWidth={2}
                     fill="url(#fillApplications)"
+                    dot={
+                      seriesData.length <= 1
+                        ? { r: 5, strokeWidth: 2, fill: "#10b981" }
+                        : { r: 2.5, strokeWidth: 1 }
+                    }
+                    activeDot={{ r: 6, strokeWidth: 2 }}
                   />
                 )}
               </AreaChart>
