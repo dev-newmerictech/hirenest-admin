@@ -17,28 +17,22 @@ const STAGE_CONFIGS: Record<
   { label: string; description: string; barColor: string; bgAccent: string }
 > = {
   0: {
-    label: "1. Ad Impressions",
-    description: "Gate evaluations and campaign traffic arrivals",
+    label: "1. Visitors Came In",
+    description: "Traffic arrivals via campaign link",
     barColor: "bg-indigo-500",
     bgAccent:
       "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   },
   1: {
-    label: "2. Landing Page Views",
-    description: "Candidates reviewing the public job specification",
-    barColor: "bg-sky-500",
-    bgAccent: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
-  },
-  2: {
-    label: "3. Sign-ups",
-    description: "Candidates entering phone, email, or uploading resume",
+    label: "2. Sign-ups",
+    description: "Candidates registered via this campaign",
     barColor: "bg-amber-500",
     bgAccent:
       "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
-  3: {
-    label: "4. Fast-Track Applications",
-    description: "Verified candidate job applications submitted",
+  2: {
+    label: "3. Applications",
+    description: "Job applications submitted via this campaign",
     barColor: "bg-emerald-500",
     bgAccent:
       "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
@@ -58,7 +52,7 @@ export function CampaignFunnelMatrix({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-2">
-          {[...Array(4)].map((_, i) => (
+          {[...Array(3)].map((_, i) => (
             <div
               key={i}
               className="h-16 rounded-md bg-muted/60 animate-pulse"

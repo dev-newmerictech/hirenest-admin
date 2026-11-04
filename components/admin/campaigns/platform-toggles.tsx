@@ -132,9 +132,12 @@ export function PlatformToggles({
       <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         {platforms.map((p) => {
           const breakdown = (
-            summary?.platformBreakdown || (summary as any)?.platforms
-          )?.find(
-            (b: any) => b.platform.toLowerCase() === p.platform.toLowerCase(),
+            summary?.platformBreakdown ||
+            (summary as any)?.platforms ||
+            []
+          ).find(
+            (b: any) =>
+              b?.platform?.toLowerCase() === p.platform?.toLowerCase(),
           );
 
           return (
@@ -156,7 +159,7 @@ export function PlatformToggles({
               <div className="mt-3 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/50 pt-2">
                 <span>{breakdown?.campaignsCount ?? 0} campaigns</span>
                 <span className="font-semibold text-foreground">
-                  {breakdown?.leadsCount ?? 0} leads
+                  {breakdown?.leadsCount ?? 0} sign-ups
                 </span>
               </div>
             </div>

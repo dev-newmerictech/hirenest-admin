@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DetailDrawer } from "@/components/admin/detail-drawer";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { SearchableJobSelect } from "./searchable-job-select";
+import { FunnelChart } from "./funnel-chart";
 import { Campaign } from "@/lib/api/campaigns";
 import { Job } from "@/lib/types";
 import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
@@ -14,6 +15,9 @@ import {
   bindJobThunk,
   updateCampaignThunk,
   fetchCampaign,
+  fetchCampaignAnalyticsThunk,
+  setSelectedCampaignCode,
+  setActiveTab,
 } from "@/lib/store/campaignSlice";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -27,6 +31,7 @@ import {
   Building2,
   Sparkles,
   Link2,
+  BarChart3,
 } from "lucide-react";
 
 interface CampaignDetailDrawerProps {
@@ -46,9 +51,12 @@ export function CampaignDetailDrawer({
 }: CampaignDetailDrawerProps) {
   const dispatch = useAppDispatch();
   const { toast } = useToast();
-  const { selectedCampaign, isMutating } = useAppSelector(
-    (state) => state.campaigns,
-  );
+  const {
+    selectedCampaign,
+    selectedCampaignAnalytics,
+    isLoadingAnalytics,
+    isMutating,
+  } = useAppSelector((state) => state.campaigns);
 
   const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
   const [selectedJobToBind, setSelectedJobToBind] = useState<string>("");
@@ -59,6 +67,14 @@ export function CampaignDetailDrawer({
     (selectedCampaign && selectedCampaign.id === campaign?.id
       ? selectedCampaign
       : campaign) || campaign;
+
+  const activeCampaignId = activeCampaign?.id;
+
+  useEffect(() => {
+    if (open && activeCampaignId) {
+      dispatch(fetchCampaignAnalyticsThunk(activeCampaignId));
+    }
+  }, [dispatch, open, activeCampaignId]);
 
   if (!activeCampaign) return null;
 
@@ -204,6 +220,19 @@ export function CampaignDetailDrawer({
             <Button
               variant="outline"
               size="sm"
+              onClick={() => {
+                onOpenChange(false);
+                dispatch(setSelectedCampaignCode(activeCampaign.campaignCode));
+                dispatch(setActiveTab("analytics"));
+              }}
+              className="gap-1.5 text-xs h-8 shrink-0 border-primary/40 text-primary hover:bg-primary/5"
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              View Analytics & Candidates
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => onEditCampaign(activeCampaign)}
               className="gap-1.5 text-xs h-8 shrink-0"
             >
@@ -211,6 +240,46 @@ export function CampaignDetailDrawer({
               Edit
             </Button>
           </div>
+        </div>
+
+        {/* Campaign Funnel Performance Section */}
+        <div className="w-full min-w-0">
+          {(() => {
+            const isAnalyticsForActiveCampaign =
+              selectedCampaignAnalytics?.campaignId === activeCampaign.id;
+            const currentAnalytics = isAnalyticsForActiveCampaign
+              ? selectedCampaignAnalytics
+              : null;
+
+            return (
+              <FunnelChart
+                impressions={
+                  currentAnalytics?.impressions ??
+                  (currentAnalytics as any)?.totalImpressions ??
+                  activeCampaign.impressionsCount ??
+                  0
+                }
+                leads={
+                  currentAnalytics?.leads ??
+                  (currentAnalytics as any)?.totalLeads ??
+                  activeCampaign.leadsCount ??
+                  0
+                }
+                applications={
+                  currentAnalytics?.applications ??
+                  (currentAnalytics as any)?.totalApplications ??
+                  activeCampaign.applicationsCount ??
+                  0
+                }
+                dailyTrends={
+                  currentAnalytics?.dailyFunnelTrends ??
+                  (currentAnalytics as any)?.timeseries ??
+                  []
+                }
+                title={`${activeCampaign.name} Funnel Performance`}
+              />
+            );
+          })()}
         </div>
 
         {/* HERO SECTION: Job Linkage & Route Manager */}
@@ -316,7 +385,7 @@ export function CampaignDetailDrawer({
                     <div className="grid grid-cols-4 gap-2 pt-1 border-t border-border/40 text-[11px] font-mono">
                       <div className="bg-muted/30 rounded p-1.5 text-center">
                         <div className="text-[9px] text-muted-foreground uppercase font-sans">
-                          Impressions
+                          Visitors
                         </div>
                         <div className="font-semibold text-foreground">
                           {(binding.impressionsCount ?? 0).toLocaleString()}

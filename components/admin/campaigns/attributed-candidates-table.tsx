@@ -46,8 +46,12 @@ export function AttributedCandidatesTable() {
     isLoadingAttributedApplicants,
     applicantFilters,
     campaigns,
+    allCampaigns,
     platforms,
   } = useAppSelector((state) => state.campaigns);
+
+  const effectiveCampaigns =
+    allCampaigns && allCampaigns.length > 0 ? allCampaigns : campaigns;
 
   const [, startTransition] = useTransition();
   const [localSearch, setLocalSearch] = useState(applicantFilters.search || "");
@@ -256,7 +260,7 @@ export function AttributedCandidatesTable() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Campaigns</SelectItem>
-                {campaigns.map((c) => (
+                {effectiveCampaigns.map((c) => (
                   <SelectItem
                     key={c.campaignCode || c.id}
                     value={c.campaignCode}

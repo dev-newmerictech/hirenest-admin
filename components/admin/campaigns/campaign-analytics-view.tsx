@@ -5,6 +5,9 @@ import { useAppDispatch, useAppSelector } from "@/lib/store/hooks";
 import {
   fetchAnalyticsOverview,
   setAnalyticsFilters,
+  setSelectedCampaignCode,
+  fetchAttributedApplicants,
+  setApplicantFilters,
 } from "@/lib/store/campaignSlice";
 import { CampaignAnalyticsFilters } from "./campaign-analytics-filters";
 import { CampaignTimeseriesChart } from "./campaign-timeseries-chart";
@@ -44,7 +47,13 @@ export function CampaignAnalyticsView() {
     analyticsFilters,
     platforms,
     campaigns,
+    allCampaigns,
+    applicantFilters,
   } = useAppSelector((state) => state.campaigns);
+
+  const effectiveCampaigns = useMemo(() => {
+    return allCampaigns && allCampaigns.length > 0 ? allCampaigns : campaigns;
+  }, [allCampaigns, campaigns]);
 
   const { allJobPosts } = useAppSelector((state) => state.jobPosts);
 
@@ -78,11 +87,16 @@ export function CampaignAnalyticsView() {
   const handleFilterChange = (updates: Partial<IAnalyticsOverviewFilters>) => {
     const newFilters = { ...analyticsFilters, ...updates };
     dispatch(setAnalyticsFilters(newFilters));
+    if (updates.campaignCode !== undefined) {
+      const code = updates.campaignCode || "all";
+      dispatch(setSelectedCampaignCode(code));
+    }
     dispatch(fetchAnalyticsOverview(newFilters));
   };
 
   const handleResetFilters = () => {
     const emptyFilters: IAnalyticsOverviewFilters = {};
+    dispatch(setSelectedCampaignCode("all"));
     dispatch(setAnalyticsFilters(emptyFilters));
     dispatch(fetchAnalyticsOverview(emptyFilters));
   };
@@ -91,7 +105,14 @@ export function CampaignAnalyticsView() {
     const dateStr = format(new Date(), "yyyy-MM-dd");
 
     if (viewMode === "campaigns") {
-      if (!campaigns || campaigns.length === 0) {
+      const sourceList =
+        analyticsFilters.campaignCode && analyticsFilters.campaignCode !== "all"
+          ? (effectiveCampaigns || []).filter(
+              (c) => c.campaignCode === analyticsFilters.campaignCode,
+            )
+          : effectiveCampaigns || campaigns;
+
+      if (!sourceList || sourceList.length === 0) {
         toast({
           title: "Export Notice",
           description: "No campaign analytics data available to export.",
@@ -100,7 +121,7 @@ export function CampaignAnalyticsView() {
         return;
       }
 
-      const flatData = campaigns.map((c: Campaign, idx: number) => {
+      const flatData = sourceList.map((c: Campaign, idx: number) => {
         const ctr =
           c.impressionsCount > 0
             ? ((c.leadsCount / c.impressionsCount) * 100).toFixed(1)
@@ -223,8 +244,17 @@ export function CampaignAnalyticsView() {
   };
 
   const sortedLeaderboard = useMemo(() => {
-    if (!campaigns) return [];
-    return [...campaigns].sort((a, b) => {
+    if (!effectiveCampaigns) return [];
+    let list = [...effectiveCampaigns];
+    if (
+      analyticsFilters.campaignCode &&
+      analyticsFilters.campaignCode !== "all"
+    ) {
+      list = list.filter(
+        (c) => c.campaignCode === analyticsFilters.campaignCode,
+      );
+    }
+    return list.sort((a, b) => {
       let valA = 0;
       let valB = 0;
       const ctrA =
@@ -258,7 +288,12 @@ export function CampaignAnalyticsView() {
       }
       return sortDirection === "asc" ? valA - valB : valB - valA;
     });
-  }, [campaigns, sortField, sortDirection]);
+  }, [
+    effectiveCampaigns,
+    analyticsFilters.campaignCode,
+    sortField,
+    sortDirection,
+  ]);
 
   const sortedJobPosts = useMemo(() => {
     const list = analyticsOverview?.topRequisitions || [];
@@ -322,17 +357,18 @@ export function CampaignAnalyticsView() {
         onReset={handleResetFilters}
         platforms={platforms}
         jobs={allJobPosts}
+        campaigns={effectiveCampaigns}
         onExport={handleExport}
         isLoading={isLoadingAnalyticsOverview}
       />
 
       {/* High-Impact Marketing KPI Ribbons */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Total Impressions */}
+        {/* Visitors Came In */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Impressions</span>
+              <span className="text-xs font-medium">Visitors Came In</span>
               <Eye className="h-3.5 w-3.5 text-indigo-500" />
             </div>
             <div className="text-xl font-bold font-mono text-foreground">
@@ -343,27 +379,7 @@ export function CampaignAnalyticsView() {
               )}
             </div>
             <div className="text-[11px] text-muted-foreground mt-1">
-              Gate impressions & traffic
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Total Job Views */}
-        <Card className="border-border/70 shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Page Views</span>
-              <Activity className="h-3.5 w-3.5 text-sky-500" />
-            </div>
-            <div className="text-xl font-bold font-mono text-foreground">
-              {isLoadingAnalyticsOverview ? (
-                <div className="h-6 w-16 bg-muted/60 animate-pulse rounded" />
-              ) : (
-                (kpis?.totalJobViews || 0).toLocaleString()
-              )}
-            </div>
-            <div className="text-[11px] text-muted-foreground mt-1">
-              Job specification visits
+              Arrived via campaign link
             </div>
           </CardContent>
         </Card>
@@ -383,12 +399,12 @@ export function CampaignAnalyticsView() {
               )}
             </div>
             <div className="text-[11px] text-muted-foreground mt-1">
-              Verified campaign registrations
+              Candidate accounts registered
             </div>
           </CardContent>
         </Card>
 
-        {/* Total Applications */}
+        {/* Applications */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
@@ -403,27 +419,47 @@ export function CampaignAnalyticsView() {
               )}
             </div>
             <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
-              Verified ATS candidates
+              Job applications submitted
             </div>
           </CardContent>
         </Card>
 
-        {/* Overall Blended Conversion Rate */}
+        {/* Sign-up CVR */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Blended CVR</span>
+              <span className="text-xs font-medium">Sign-up CVR</span>
+              <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-foreground">
+              {isLoadingAnalyticsOverview ? (
+                <div className="h-6 w-16 bg-muted/60 animate-pulse rounded" />
+              ) : (
+                `${(kpis?.totalImpressions || 0) > 0 ? (((kpis?.totalLeads || 0) / (kpis?.totalImpressions || 1)) * 100).toFixed(1) : "0.0"}%`
+              )}
+            </div>
+            <div className="text-[11px] text-muted-foreground mt-1">
+              Visitors who registered
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Application Yield */}
+        <Card className="border-border/70 shadow-xs">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-muted-foreground mb-1.5">
+              <span className="text-xs font-medium">Application Yield</span>
               <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
             </div>
             <div className="text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400">
               {isLoadingAnalyticsOverview ? (
                 <div className="h-6 w-16 bg-muted/60 animate-pulse rounded" />
               ) : (
-                `${kpis?.blendedConversionRate || 0}%`
+                `${(kpis?.totalLeads || 0) > 0 ? (((kpis?.totalApplications || 0) / (kpis?.totalLeads || 1)) * 100).toFixed(1) : "0.0"}%`
               )}
             </div>
             <div className="text-[11px] text-muted-foreground mt-1">
-              Impression-to-App yield
+              Sign-ups who submitted application
             </div>
           </CardContent>
         </Card>

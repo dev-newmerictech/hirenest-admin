@@ -28,12 +28,8 @@ interface CampaignTimeseriesChartProps {
 
 const chartConfig = {
   impressions: {
-    label: "Impressions",
+    label: "Visitors Came In",
     color: "#6366f1", // Indigo
-  },
-  views: {
-    label: "Page Views",
-    color: "#0ea5e9", // Sky
   },
   leads: {
     label: "Sign-ups",
@@ -51,12 +47,10 @@ export function CampaignTimeseriesChart({
 }: CampaignTimeseriesChartProps) {
   const [activeSeries, setActiveSeries] = useState<{
     impressions: boolean;
-    views: boolean;
     leads: boolean;
     applications: boolean;
   }>({
     impressions: true,
-    views: true,
     leads: true,
     applications: true,
   });
@@ -111,20 +105,7 @@ export function CampaignTimeseriesChart({
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-indigo-500" />
-              <span>Impressions</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => toggleSeries("views")}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
-                activeSeries.views
-                  ? "bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400 font-semibold"
-                  : "bg-muted/40 border-transparent text-muted-foreground opacity-60"
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-sky-500" />
-              <span>Page Views</span>
+              <span>Visitors Came In</span>
             </button>
 
             <button
@@ -150,7 +131,7 @@ export function CampaignTimeseriesChart({
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Apps</span>
+              <span>Applications</span>
             </button>
           </div>
         </div>
@@ -184,10 +165,6 @@ export function CampaignTimeseriesChart({
                   >
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
                     <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
-                  </linearGradient>
-                  <linearGradient id="fillViews" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="fillLeads" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
@@ -254,15 +231,6 @@ export function CampaignTimeseriesChart({
                     stroke="#6366f1"
                     strokeWidth={2}
                     fill="url(#fillImpressions)"
-                  />
-                )}
-                {activeSeries.views && (
-                  <Area
-                    type="monotone"
-                    dataKey="views"
-                    stroke="#0ea5e9"
-                    strokeWidth={2}
-                    fill="url(#fillViews)"
                   />
                 )}
                 {activeSeries.leads && (

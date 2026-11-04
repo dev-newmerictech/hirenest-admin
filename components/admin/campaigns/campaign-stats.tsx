@@ -2,14 +2,19 @@
 
 import { StatCard } from "@/components/admin/stat-card";
 import { Megaphone, Eye, UserCheck, FileCheck } from "lucide-react";
-import { GlobalDashboardSummary } from "@/lib/api/campaigns";
+import { GlobalDashboardSummary, Campaign } from "@/lib/api/campaigns";
 
 interface CampaignStatsProps {
   summary: GlobalDashboardSummary | null;
+  selectedCampaign?: Campaign | null;
   isLoading?: boolean;
 }
 
-export function CampaignStats({ summary, isLoading }: CampaignStatsProps) {
+export function CampaignStats({
+  summary,
+  selectedCampaign,
+  isLoading,
+}: CampaignStatsProps) {
   if (isLoading) {
     return (
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -23,11 +28,57 @@ export function CampaignStats({ summary, isLoading }: CampaignStatsProps) {
     );
   }
 
+  if (selectedCampaign) {
+    const totalImpressions = selectedCampaign.impressionsCount ?? 0;
+    const totalLeads = selectedCampaign.leadsCount ?? 0;
+    const totalApplications = selectedCampaign.applicationsCount ?? 0;
+
+    const leadConvRate =
+      totalImpressions > 0
+        ? ((totalLeads / totalImpressions) * 100).toFixed(1)
+        : "0.0";
+    const appConvRate =
+      totalLeads > 0
+        ? ((totalApplications / totalLeads) * 100).toFixed(1)
+        : "0.0";
+
+    return (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Campaign Status"
+          value={selectedCampaign.status.toUpperCase()}
+          icon={Megaphone}
+          description={selectedCampaign.name || selectedCampaign.campaignCode}
+        />
+        <StatCard
+          title="Visitors"
+          value={totalImpressions.toLocaleString()}
+          icon={Eye}
+          description={`Came in via ${selectedCampaign.platform.toUpperCase()}`}
+        />
+        <StatCard
+          title="Sign-ups"
+          value={totalLeads.toLocaleString()}
+          icon={UserCheck}
+          description={`${leadConvRate}% sign-up conversion`}
+        />
+        <StatCard
+          title="Applications"
+          value={totalApplications.toLocaleString()}
+          icon={FileCheck}
+          description={`${appConvRate}% application conversion`}
+        />
+      </div>
+    );
+  }
+
   const activeCampaigns = summary?.activeCampaigns ?? 0;
   const totalCampaigns = summary?.totalCampaigns ?? 0;
-  const totalImpressions = summary?.totalImpressions ?? 0;
-  const totalLeads = summary?.totalLeads ?? 0;
-  const totalApplications = summary?.totalApplications ?? 0;
+  const totalImpressions =
+    summary?.impressions ?? summary?.totalImpressions ?? 0;
+  const totalLeads = summary?.leads ?? summary?.totalLeads ?? 0;
+  const totalApplications =
+    summary?.applications ?? summary?.totalApplications ?? 0;
 
   const leadConvRate =
     totalImpressions > 0
@@ -44,13 +95,13 @@ export function CampaignStats({ summary, isLoading }: CampaignStatsProps) {
         title="Active Campaigns"
         value={activeCampaigns}
         icon={Megaphone}
-        description={`${totalCampaigns} total registered`}
+        description={`${totalCampaigns} total registered (Collective)`}
       />
       <StatCard
-        title="Impressions"
+        title="Visitors"
         value={totalImpressions.toLocaleString()}
         icon={Eye}
-        description="Gate visits across platforms"
+        description="Came in across platforms (Collective)"
       />
       <StatCard
         title="Sign-ups"

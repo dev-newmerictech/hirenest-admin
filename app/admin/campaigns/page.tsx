@@ -39,17 +39,20 @@ import {
   fetchCampaignSummary,
   fetchPlatforms,
   fetchCampaigns,
+  fetchAllCampaigns,
   fetchCampaign,
   fetchAnalyticsOverview,
   updateCampaignThunk,
   setSearchQuery,
   setFilterPlatform,
   setFilterStatus,
+  setSelectedCampaignCode,
   setActiveTab,
+  fetchAttributedApplicants,
 } from "@/lib/store/campaignSlice";
 import { fetchAllJobPosts } from "@/lib/store/jobPostsSlice";
 import { Campaign } from "@/lib/api/campaigns";
-import { Plus, Link2, Eye, Sparkles, BarChart3, Layers } from "lucide-react";
+import { Plus, Link2, Eye, Sparkles, BarChart3, Layers, Megaphone, RefreshCw } from "lucide-react";
 
 export default function CampaignsPage() {
   const dispatch = useAppDispatch();
@@ -58,6 +61,9 @@ export default function CampaignsPage() {
     summary,
     platforms,
     campaigns,
+    allCampaigns,
+    selectedCampaignCode,
+    analyticsFilters,
     pagination,
     isLoadingSummary,
     isLoadingPlatforms,
@@ -87,12 +93,84 @@ export default function CampaignsPage() {
   const [selectedCampaignForDetail, setSelectedCampaignForDetail] =
     useState<Campaign | null>(null);
 
+  const campaignOptions = useMemo(() => {
+    return allCampaigns && allCampaigns.length > 0 ? allCampaigns : campaigns;
+  }, [allCampaigns, campaigns]);
+
+  const activeCampaignObj = useMemo(() => {
+    if (!selectedCampaignCode || selectedCampaignCode === "all") return null;
+    return (
+      campaignOptions.find((c) => c.campaignCode === selectedCampaignCode) ||
+      null
+    );
+  }, [campaignOptions, selectedCampaignCode]);
+
+  const displayedCampaigns = useMemo(() => {
+    if (!selectedCampaignCode || selectedCampaignCode === "all") {
+      return campaigns;
+    }
+    const filtered = campaignOptions.filter(
+      (c) => c.campaignCode === selectedCampaignCode,
+    );
+    return filtered.length > 0 ? filtered : campaigns;
+  }, [campaignOptions, campaigns, selectedCampaignCode]);
+
+  const handleGlobalCampaignChange = (code: string) => {
+    dispatch(setSelectedCampaignCode(code));
+    if (code === "all") {
+      dispatch(
+        fetchAnalyticsOverview({
+          ...analyticsFilters,
+          campaignCode: undefined,
+          campaignId: undefined,
+        }),
+      );
+    } else {
+      dispatch(
+        fetchAnalyticsOverview({
+          ...analyticsFilters,
+          campaignCode: code,
+          campaignId: undefined,
+        }),
+      );
+    }
+  };
+
+  const handleRefreshAll = () => {
+    dispatch(fetchCampaignSummary());
+    dispatch(fetchPlatforms());
+    dispatch(fetchAllJobPosts());
+    dispatch(fetchAllCampaigns());
+    dispatch(
+      fetchCampaigns({
+        page: currentPage,
+        limit: 10,
+        platform: filterPlatform !== "all" ? filterPlatform : undefined,
+        status: filterStatus !== "all" ? filterStatus : undefined,
+        search: searchQuery || undefined,
+      }),
+    );
+    dispatch(
+      fetchAnalyticsOverview(
+        selectedCampaignCode && selectedCampaignCode !== "all"
+          ? { ...analyticsFilters, campaignCode: selectedCampaignCode }
+          : { ...analyticsFilters, campaignCode: undefined },
+      ),
+    );
+    toast({
+      title: "Data Refreshed",
+      description:
+        "Fetched the latest campaign data and live conversion metrics.",
+    });
+  };
+
   // Initial load
   useEffect(() => {
     dispatch(fetchCampaignSummary());
     dispatch(fetchPlatforms());
     dispatch(fetchAllJobPosts());
     dispatch(fetchAnalyticsOverview());
+    dispatch(fetchAllCampaigns());
   }, [dispatch]);
 
   // Fetch campaigns on filter/page change
@@ -233,7 +311,7 @@ export default function CampaignsPage() {
     },
     {
       key: "impressionsCount",
-      label: "Impressions",
+      label: "Visitors",
       render: (item) => (
         <span className="font-mono text-xs">
           {item.impressionsCount.toLocaleString()}
@@ -324,6 +402,15 @@ export default function CampaignsPage() {
             />
             <div className="flex items-center gap-2 self-stretch sm:self-auto">
               <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRefreshAll}
+                className="gap-1.5 text-xs h-9"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                Refresh Data
+              </Button>
+              <Button
                 onClick={handleOpenCreate}
                 className="gap-1.5 text-xs h-9"
               >
@@ -333,32 +420,71 @@ export default function CampaignsPage() {
             </div>
           </div>
 
-          {/* Sub-Tabs Navigation */}
-          <div className="flex items-center gap-2 border-b border-border pb-3">
-            <button
-              type="button"
-              onClick={() => dispatch(setActiveTab("campaigns"))}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                activeTab === "campaigns"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-              }`}
-            >
-              <Layers className="h-3.5 w-3.5" />
-              <span>Campaigns & Acquisition Links</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => dispatch(setActiveTab("analytics"))}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
-                activeTab === "analytics"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-              }`}
-            >
-              <BarChart3 className="h-3.5 w-3.5" />
-              <span>Analytics & Conversion Funnels</span>
-            </button>
+          {/* Sub-Tabs Navigation & Global Campaign Switcher */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => dispatch(setActiveTab("campaigns"))}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  activeTab === "campaigns"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                }`}
+              >
+                <Layers className="h-3.5 w-3.5" />
+                <span>Campaigns & Acquisition Links</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => dispatch(setActiveTab("analytics"))}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  activeTab === "analytics"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                }`}
+              >
+                <BarChart3 className="h-3.5 w-3.5" />
+                <span>Analytics & Conversion Funnels</span>
+              </button>
+            </div>
+
+            {/* Campaign Selection Dropdown (Global: controls both sections) */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Megaphone className="h-3.5 w-3.5 text-primary" />
+                <span className="font-semibold text-foreground">Campaign:</span>
+              </div>
+              <Select
+                value={selectedCampaignCode || "all"}
+                onValueChange={(val) => handleGlobalCampaignChange(val)}
+              >
+                <SelectTrigger className="w-[240px] sm:w-[280px] text-xs h-9 bg-background border-primary/40 font-medium shadow-2xs">
+                  <SelectValue placeholder="All Campaigns (Combined)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">
+                    <span className="font-semibold">All Campaigns (Combined / Collective)</span>
+                  </SelectItem>
+                  {campaignOptions.map((c) => (
+                    <SelectItem key={c.id || c.campaignCode} value={c.campaignCode}>
+                      {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedCampaignCode && selectedCampaignCode !== "all" && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleGlobalCampaignChange("all")}
+                  className="h-8 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                >
+                  View All
+                </Button>
+              )}
+            </div>
           </div>
 
           {activeTab === "analytics" ? (
@@ -366,7 +492,11 @@ export default function CampaignsPage() {
           ) : (
             <>
               {/* Top KPI Stats */}
-              <CampaignStats summary={summary} isLoading={isLoadingSummary} />
+              <CampaignStats
+                summary={summary}
+                selectedCampaign={activeCampaignObj}
+                isLoading={isLoadingSummary}
+              />
 
               {/* Platform Channel Switches */}
               <PlatformToggles
@@ -390,7 +520,30 @@ export default function CampaignsPage() {
                     />
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Campaign Filter Select */}
+                    <Select
+                      value={selectedCampaignCode || "all"}
+                      onValueChange={(val) => handleGlobalCampaignChange(val)}
+                    >
+                      <SelectTrigger className="w-[180px] text-xs h-10 border-primary/30">
+                        <SelectValue placeholder="All Campaigns" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">
+                          <span className="font-semibold">All Campaigns</span>
+                        </SelectItem>
+                        {campaignOptions.map((c) => (
+                          <SelectItem
+                            key={c.id || c.campaignCode}
+                            value={c.campaignCode}
+                          >
+                            {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
                     {/* Platform Filter */}
                     <Select
                       value={filterPlatform}
@@ -442,7 +595,7 @@ export default function CampaignsPage() {
                   <>
                     <DataTable
                       columns={columns}
-                      data={campaigns}
+                      data={displayedCampaigns}
                       onRowClick={handleRowClick}
                       emptyMessage="No marketing campaigns found. Create your first campaign above."
                     />
@@ -549,7 +702,7 @@ export default function CampaignsPage() {
           <LinkGeneratorDialog
             open={isLinkGenOpen}
             onOpenChange={setIsLinkGenOpen}
-            campaigns={campaigns}
+            campaigns={campaignOptions}
             jobs={allJobPosts}
             defaultCampaign={selectedCampaignForLink}
           />
