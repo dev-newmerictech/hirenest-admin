@@ -30,7 +30,7 @@ const STAGE_CONFIGS: Record<
     bgAccent: "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
   },
   2: {
-    label: "3. Leads Captured",
+    label: "3. Sign-ups",
     description: "Candidates entering phone, email, or uploading resume",
     barColor: "bg-amber-500",
     bgAccent:
