@@ -169,6 +169,7 @@ export function CampaignAnalyticsView() {
         onFilterChange={handleFilterChange}
         onReset={handleResetFilters}
         platforms={platforms}
+        campaigns={campaigns}
         jobs={allJobPosts}
         onExport={handleExport}
         isLoading={isLoadingAnalyticsOverview}
