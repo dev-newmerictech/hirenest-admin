@@ -51,19 +51,19 @@ export function CampaignStats({
           description={selectedCampaign.name || selectedCampaign.campaignCode}
         />
         <StatCard
-          title="Visitors"
+          title="Visitors Landed"
           value={totalImpressions.toLocaleString()}
           icon={Eye}
           description={`Came in via ${selectedCampaign.platform.toUpperCase()}`}
         />
         <StatCard
-          title="Sign-ups"
+          title="Created Accounts"
           value={totalLeads.toLocaleString()}
           icon={UserCheck}
-          description={`${leadConvRate}% sign-up conversion`}
+          description={`${leadConvRate}% account conversion`}
         />
         <StatCard
-          title="Applications"
+          title="Submitted Applications"
           value={totalApplications.toLocaleString()}
           icon={FileCheck}
           description={`${appConvRate}% application conversion`}
@@ -98,19 +98,19 @@ export function CampaignStats({
         description={`${totalCampaigns} total registered (Collective)`}
       />
       <StatCard
-        title="Visitors"
+        title="Visitors Landed"
         value={totalImpressions.toLocaleString()}
         icon={Eye}
         description="Came in across platforms (Collective)"
       />
       <StatCard
-        title="Sign-ups"
+        title="Created Accounts"
         value={totalLeads.toLocaleString()}
         icon={UserCheck}
-        description={`${leadConvRate}% sign-up conversion`}
+        description={`${leadConvRate}% account conversion`}
       />
       <StatCard
-        title="Applications"
+        title="Submitted Applications"
         value={totalApplications.toLocaleString()}
         icon={FileCheck}
         description={`${appConvRate}% application conversion`}

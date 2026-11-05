@@ -311,7 +311,7 @@ export default function CampaignsPage() {
     },
     {
       key: "impressionsCount",
-      label: "Visitors",
+      label: "Visitors Landed",
       render: (item) => (
         <span className="font-mono text-xs">
           {item.impressionsCount.toLocaleString()}
@@ -320,7 +320,7 @@ export default function CampaignsPage() {
     },
     {
       key: "leadsCount",
-      label: "Sign-ups",
+      label: "Created Accounts",
       render: (item) => {
         const rate =
           item.impressionsCount > 0
@@ -340,7 +340,7 @@ export default function CampaignsPage() {
     },
     {
       key: "applicationsCount",
-      label: "Applications",
+      label: "Submitted Applications",
       render: (item) => {
         const rate =
           item.leadsCount > 0

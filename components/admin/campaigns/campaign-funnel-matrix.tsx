@@ -21,22 +21,29 @@ interface StageConfig {
 
 const CANONICAL_STAGE_CONFIGS: Record<string, StageConfig> = {
   visitors: {
-    label: "1. Visitors Came In",
-    description: "Traffic arrivals via campaign link",
+    label: "1. Visitors Landed",
+    description: "Traffic arrivals / gate visits via campaign link",
     barColor: "bg-indigo-500",
     bgAccent:
       "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20",
   },
+  clicks: {
+    label: "2. Clicked 'Apply'",
+    description: "Visitors who clicked 'Apply' button on requisition gate",
+    barColor: "bg-sky-500",
+    bgAccent:
+      "bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20",
+  },
   signups: {
-    label: "2. Sign-ups",
-    description: "Candidates registered via this campaign",
+    label: "3. Created Accounts",
+    description: "Real registered candidate accounts in database",
     barColor: "bg-amber-500",
     bgAccent:
       "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
   },
   applications: {
-    label: "3. Applications",
-    description: "Job applications submitted via this campaign",
+    label: "4. Submitted Applications",
+    description: "Completed job applications matching job provider count",
     barColor: "bg-emerald-500",
     bgAccent:
       "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
@@ -49,6 +56,14 @@ function resolveStageConfig(stageName: string, idx: number): StageConfig {
     return CANONICAL_STAGE_CONFIGS.visitors;
   }
   if (
+    normalized.includes("click") ||
+    normalized.includes("apply button") ||
+    normalized.includes("cta")
+  ) {
+    return CANONICAL_STAGE_CONFIGS.clicks;
+  }
+  if (
+    normalized.includes("account") ||
     normalized.includes("sign-up") ||
     normalized.includes("signup") ||
     normalized.includes("lead")
@@ -57,12 +72,12 @@ function resolveStageConfig(stageName: string, idx: number): StageConfig {
   }
   if (
     normalized.includes("application") ||
-    normalized.includes("apply")
+    normalized.includes("submitted")
   ) {
     return CANONICAL_STAGE_CONFIGS.applications;
   }
   const fallbackKey =
-    idx === 0 ? "visitors" : idx === 1 ? "signups" : "applications";
+    idx === 0 ? "visitors" : idx === 1 ? "clicks" : idx === 2 ? "signups" : "applications";
   return (
     CANONICAL_STAGE_CONFIGS[fallbackKey] || {
       label: stageName || `Stage ${idx + 1}`,
@@ -86,7 +101,7 @@ export function CampaignFunnelMatrix({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 pt-2">
-          {[...Array(3)].map((_, i) => (
+          {[...Array(4)].map((_, i) => (
             <div
               key={i}
               className="h-16 rounded-md bg-muted/60 animate-pulse"
@@ -97,20 +112,43 @@ export function CampaignFunnelMatrix({
     );
   }
 
-  // Normalize incoming stages: if legacy 4-stage format arrives, keep canonical 3 stages
+  // Display complete 4-stage funnel (or canonical 4-stage fallback)
   const stages = React.useMemo(() => {
-    if (!funnel || funnel.length === 0) return [];
-    if (funnel.length > 3) {
-      const visitors = funnel.find((s) => /visitor|impression/i.test(s.stage));
-      const signups = funnel.find((s) => /sign-up|signup|lead/i.test(s.stage));
-      const applications = funnel.find((s) =>
-        /application|apply/i.test(s.stage)
-      );
-      if (visitors && signups && applications) {
-        return [visitors, signups, applications];
-      }
-    }
-    return funnel;
+    if (funnel && funnel.length > 0) return funnel;
+    return [
+      {
+        stage: "1. Visitors Landed",
+        count: 0,
+        conversionRate: 100,
+        dropoffRate: 0,
+        dropoffCount: 0,
+        dropoffLabel: "0 Bounced (0.0%)",
+      },
+      {
+        stage: "2. Clicked 'Apply'",
+        count: 0,
+        conversionRate: 0,
+        dropoffRate: 0,
+        dropoffCount: 0,
+        dropoffLabel: "0 Dropped at Phone Prompt (0.0%)",
+      },
+      {
+        stage: "3. Created Accounts",
+        count: 0,
+        conversionRate: 0,
+        dropoffRate: 0,
+        dropoffCount: 0,
+        dropoffLabel: "0 Dropped at Resume Step (0.0%)",
+      },
+      {
+        stage: "4. Submitted Applications",
+        count: 0,
+        conversionRate: 0,
+        dropoffRate: 0,
+        dropoffCount: 0,
+        dropoffLabel: "",
+      },
+    ];
   }, [funnel]);
 
   const topImpressionCount = stages[0]?.count || 0;
@@ -191,11 +229,19 @@ export function CampaignFunnelMatrix({
               {idx < stages.length - 1 && (
                 <div className="flex items-center justify-end pr-2 pt-0.5 gap-1.5 text-[11px] text-muted-foreground">
                   <ArrowDown className="h-3 w-3 text-rose-500" />
-                  <span className="text-rose-500 font-medium">
-                    -{stage.dropoffRate ? stage.dropoffRate.toFixed(1) : "0.0"}%
-                    drop-off
-                  </span>
-                  <span>to next step</span>
+                  {stage.dropoffLabel ? (
+                    <span className="text-rose-500 font-medium">
+                      {stage.dropoffLabel}
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-rose-500 font-medium">
+                        -{stage.dropoffRate ? stage.dropoffRate.toFixed(1) : "0.0"}%
+                        drop-off
+                      </span>
+                      <span>to next step</span>
+                    </>
+                  )}
                 </div>
               )}
             </div>

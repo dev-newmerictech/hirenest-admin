@@ -81,6 +81,8 @@ export interface CampaignAnalytics {
   status?: CampaignStatus;
   impressions: number;
   totalImpressions?: number;
+  applyClicks?: number;
+  totalApplyClicks?: number;
   leads: number;
   totalLeads?: number;
   applications: number;
@@ -93,6 +95,9 @@ export interface CampaignAnalytics {
     stage: string;
     count: number;
     conversionRate: number;
+    dropoffRate?: number;
+    dropoffCount?: number;
+    dropoffLabel?: string;
   }>;
   dailyFunnelTrends?: Array<{
     date: string;
@@ -366,6 +371,8 @@ export interface IFunnelDropoffStage {
   count: number;
   conversionRate: number;
   dropoffRate: number;
+  dropoffCount?: number;
+  dropoffLabel?: string;
 }
 
 export interface IGlobalAnalyticsOverviewResponse {
@@ -374,12 +381,14 @@ export interface IGlobalAnalyticsOverviewResponse {
     totalJobViews: number;
     totalLeads: number;
     totalApplications: number;
+    totalApplyClicks?: number;
     blendedConversionRate: number;
     activeCampaignsCount: number;
   };
   timeseries: Array<{
     date: string;
     impressions: number;
+    clicks?: number;
     views: number;
     leads: number;
     applications: number;
@@ -390,6 +399,7 @@ export interface IGlobalAnalyticsOverviewResponse {
     displayName: string;
     campaignsCount: number;
     impressions: number;
+    clicks?: number;
     leads: number;
     applications: number;
     conversionRate: number;
@@ -401,6 +411,7 @@ export interface IGlobalAnalyticsOverviewResponse {
     campaignCodes?: string[];
     platform?: string;
     impressions?: number;
+    clicks?: number;
     signupsCount?: number;
     applicationsCount: number;
     conversionRate?: number;

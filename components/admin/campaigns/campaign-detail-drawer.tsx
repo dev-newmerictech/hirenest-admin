@@ -259,6 +259,11 @@ export function CampaignDetailDrawer({
                   activeCampaign.impressionsCount ??
                   0
                 }
+                applyClicks={
+                  currentAnalytics?.applyClicks ??
+                  (currentAnalytics as any)?.totalApplyClicks ??
+                  0
+                }
                 leads={
                   currentAnalytics?.leads ??
                   (currentAnalytics as any)?.totalLeads ??
@@ -385,7 +390,7 @@ export function CampaignDetailDrawer({
                     <div className="grid grid-cols-4 gap-2 pt-1 border-t border-border/40 text-[11px] font-mono">
                       <div className="bg-muted/30 rounded p-1.5 text-center">
                         <div className="text-[9px] text-muted-foreground uppercase font-sans">
-                          Visitors
+                          Visitors Landed
                         </div>
                         <div className="font-semibold text-foreground">
                           {(binding.impressionsCount ?? 0).toLocaleString()}
@@ -393,7 +398,7 @@ export function CampaignDetailDrawer({
                       </div>
                       <div className="bg-muted/30 rounded p-1.5 text-center">
                         <div className="text-[9px] text-muted-foreground uppercase font-sans">
-                          Sign-ups
+                          Created Accounts
                         </div>
                         <div className="font-semibold text-primary">
                           {(binding.signupsCount ?? 0).toLocaleString()}
@@ -401,7 +406,7 @@ export function CampaignDetailDrawer({
                       </div>
                       <div className="bg-muted/30 rounded p-1.5 text-center">
                         <div className="text-[9px] text-muted-foreground uppercase font-sans">
-                          Applications
+                          Submitted Applications
                         </div>
                         <div className="font-semibold text-emerald-600 dark:text-emerald-400">
                           {(binding.applicationsCount ?? 0).toLocaleString()}

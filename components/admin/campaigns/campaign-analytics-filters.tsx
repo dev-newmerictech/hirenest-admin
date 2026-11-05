@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -45,10 +46,24 @@ export function CampaignAnalyticsFilters({
   onExport,
   isLoading,
 }: CampaignAnalyticsFiltersProps) {
-  const [activePreset, setActivePreset] = useState<string>(() => {
-    if (!filters.startDate && !filters.endDate) return "all";
-    return "30d";
-  });
+  const resolvePreset = (start?: string, end?: string): string => {
+    if (!start && !end) return "all";
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
+    if (start === todayStr && end === todayStr) return "today";
+    const d7Str = format(new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+    if (start === d7Str && end === todayStr) return "7d";
+    const d30Str = format(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+    if (start === d30Str && end === todayStr) return "30d";
+    const d90Str = format(new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000), "yyyy-MM-dd");
+    if (start === d90Str && end === todayStr) return "90d";
+    if (start && end) return "custom";
+    return "all";
+  };
+
+  const [activePreset, setActivePreset] = useState<string>(() =>
+    resolvePreset(filters.startDate, filters.endDate),
+  );
   const [customStart, setCustomStart] = useState<string>(
     filters.startDate || "",
   );
@@ -56,10 +71,14 @@ export function CampaignAnalyticsFilters({
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   React.useEffect(() => {
-    if (!filters.startDate && !filters.endDate) {
-      setActivePreset("all");
+    const preset = resolvePreset(filters.startDate, filters.endDate);
+    setActivePreset(preset);
+    if (preset === "all") {
       setCustomStart("");
       setCustomEnd("");
+    } else if (preset === "custom") {
+      setCustomStart(filters.startDate || "");
+      setCustomEnd(filters.endDate || "");
     }
   }, [filters.startDate, filters.endDate]);
 
@@ -68,26 +87,26 @@ export function CampaignAnalyticsFilters({
   ) => {
     setActivePreset(preset);
     const now = new Date();
-    const endStr = now.toISOString().split("T")[0];
+    const endStr = format(now, "yyyy-MM-dd");
 
     if (preset === "today") {
       onFilterChange({ startDate: endStr, endDate: endStr });
     } else if (preset === "7d") {
       const start = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
       onFilterChange({
-        startDate: start.toISOString().split("T")[0],
+        startDate: format(start, "yyyy-MM-dd"),
         endDate: endStr,
       });
     } else if (preset === "30d") {
       const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
       onFilterChange({
-        startDate: start.toISOString().split("T")[0],
+        startDate: format(start, "yyyy-MM-dd"),
         endDate: endStr,
       });
     } else if (preset === "90d") {
       const start = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
       onFilterChange({
-        startDate: start.toISOString().split("T")[0],
+        startDate: format(start, "yyyy-MM-dd"),
         endDate: endStr,
       });
     } else if (preset === "all") {

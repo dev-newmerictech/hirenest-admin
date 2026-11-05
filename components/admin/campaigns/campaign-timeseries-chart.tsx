@@ -16,7 +16,8 @@ import { Activity, TrendingUp } from "lucide-react";
 interface TimeSeriesItem {
   date: string;
   impressions: number;
-  views: number;
+  clicks?: number;
+  views?: number;
   leads: number;
   applications: number;
 }
@@ -28,15 +29,19 @@ interface CampaignTimeseriesChartProps {
 
 const chartConfig = {
   impressions: {
-    label: "Visitors Came In",
+    label: "Visitors Landed",
     color: "#6366f1", // Indigo
   },
+  clicks: {
+    label: "Clicked 'Apply'",
+    color: "#0ea5e9", // Sky Blue
+  },
   leads: {
-    label: "Sign-ups",
+    label: "Created Accounts",
     color: "#f59e0b", // Amber
   },
   applications: {
-    label: "Applications",
+    label: "Submitted Applications",
     color: "#10b981", // Emerald
   },
 } satisfies ChartConfig;
@@ -47,10 +52,12 @@ export function CampaignTimeseriesChart({
 }: CampaignTimeseriesChartProps) {
   const [activeSeries, setActiveSeries] = useState<{
     impressions: boolean;
+    clicks: boolean;
     leads: boolean;
     applications: boolean;
   }>({
     impressions: true,
+    clicks: true,
     leads: true,
     applications: true,
   });
@@ -94,7 +101,7 @@ export function CampaignTimeseriesChart({
             {seriesData.length === 1 && (
               <div className="flex items-center gap-2 pt-1">
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium bg-muted text-muted-foreground border border-border">
-                  Single-day checkpoint: {seriesData[0].leads} Sign-ups • {seriesData[0].applications} Applications
+                  Single-day checkpoint: {seriesData[0].impressions} Visitors Landed • {seriesData[0].clicks ?? 0} Clicked 'Apply' • {seriesData[0].leads} Created Accounts • {seriesData[0].applications} Submitted Applications
                 </span>
               </div>
             )}
@@ -112,7 +119,20 @@ export function CampaignTimeseriesChart({
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-indigo-500" />
-              <span>Visitors Came In</span>
+              <span>Visitors Landed</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => toggleSeries("clicks")}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium border transition-all ${
+                activeSeries.clicks
+                  ? "bg-sky-500/10 border-sky-500/30 text-sky-600 dark:text-sky-400 font-semibold"
+                  : "bg-muted/40 border-transparent text-muted-foreground opacity-60"
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-sky-500" />
+              <span>Clicked 'Apply'</span>
             </button>
 
             <button
@@ -125,7 +145,7 @@ export function CampaignTimeseriesChart({
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-amber-500" />
-              <span>Sign-ups</span>
+              <span>Created Accounts</span>
             </button>
 
             <button
@@ -138,7 +158,7 @@ export function CampaignTimeseriesChart({
               }`}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Applications</span>
+              <span>Submitted Applications</span>
             </button>
           </div>
         </div>
@@ -172,6 +192,16 @@ export function CampaignTimeseriesChart({
                   >
                     <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
                     <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                  </linearGradient>
+                  <linearGradient
+                    id="fillClicks"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0.0} />
                   </linearGradient>
                   <linearGradient id="fillLeads" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
@@ -242,6 +272,21 @@ export function CampaignTimeseriesChart({
                     dot={
                       seriesData.length <= 1
                         ? { r: 5, strokeWidth: 2, fill: "#6366f1" }
+                        : { r: 2.5, strokeWidth: 1 }
+                    }
+                    activeDot={{ r: 6, strokeWidth: 2 }}
+                  />
+                )}
+                {activeSeries.clicks && (
+                  <Area
+                    type="monotone"
+                    dataKey="clicks"
+                    stroke="#0ea5e9"
+                    strokeWidth={2}
+                    fill="url(#fillClicks)"
+                    dot={
+                      seriesData.length <= 1
+                        ? { r: 5, strokeWidth: 2, fill: "#0ea5e9" }
                         : { r: 2.5, strokeWidth: 1 }
                     }
                     activeDot={{ r: 6, strokeWidth: 2 }}

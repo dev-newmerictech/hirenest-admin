@@ -20,11 +20,13 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface FunnelChartProps {
   impressions: number;
+  applyClicks?: number;
   leads: number;
   applications: number;
   dailyTrends?: Array<{
     date: string;
     impressions: number;
+    clicks?: number;
     leads: number;
     applications: number;
   }>;
@@ -37,45 +39,62 @@ const funnelChartConfig = {
     color: "hsl(var(--primary))",
   },
   impressions: {
-    label: "Visitors Came In",
-    color: "#818cf8",
+    label: "Visitors Landed",
+    color: "#6366f1",
+  },
+  clicks: {
+    label: "Clicked 'Apply'",
+    color: "#0ea5e9",
   },
   leads: {
-    label: "Sign-ups",
-    color: "#4241FF",
+    label: "Created Accounts",
+    color: "#f59e0b",
   },
   applications: {
-    label: "Applications",
+    label: "Submitted Applications",
     color: "#10b981",
   },
 } satisfies ChartConfig;
 
 export function FunnelChart({
   impressions,
+  applyClicks,
   leads,
   applications,
   dailyTrends,
   title = "Campaign Funnel Performance",
 }: FunnelChartProps) {
+  const safeApps = applications;
+  const safeLeads = Math.max(leads, safeApps);
+  const safeClicks = Math.max(applyClicks ?? safeLeads, safeLeads);
+  const safeImpressions = Math.max(impressions, safeClicks);
+
   const funnelData = [
     {
-      stage: "1. Visitors Came In",
-      count: impressions,
+      stage: "1. Visitors Landed",
+      count: safeImpressions,
       conversion: "100%",
-      fill: "#818cf8",
+      fill: "#6366f1",
     },
     {
-      stage: "2. Sign-ups",
-      count: leads,
+      stage: "2. Clicked 'Apply'",
+      count: safeClicks,
       conversion:
-        impressions > 0 ? `${((leads / impressions) * 100).toFixed(1)}%` : "0%",
-      fill: "#4241FF",
+        safeImpressions > 0 ? `${((safeClicks / safeImpressions) * 100).toFixed(1)}%` : "0%",
+      fill: "#0ea5e9",
     },
     {
-      stage: "3. Applications",
-      count: applications,
+      stage: "3. Created Accounts",
+      count: safeLeads,
       conversion:
-        leads > 0 ? `${((applications / leads) * 100).toFixed(1)}%` : "0%",
+        safeImpressions > 0 ? `${((safeLeads / safeImpressions) * 100).toFixed(1)}%` : "0%",
+      fill: "#f59e0b",
+    },
+    {
+      stage: "4. Submitted Applications",
+      count: safeApps,
+      conversion:
+        safeLeads > 0 ? `${((safeApps / safeLeads) * 100).toFixed(1)}%` : "0%",
       fill: "#10b981",
     },
   ];
@@ -106,7 +125,7 @@ export function FunnelChart({
         </TabsList>
 
         <TabsContent value="funnel">
-          <div className="h-[260px] w-full">
+          <div className="h-[280px] w-full">
             <ChartContainer
               config={funnelChartConfig}
               className="h-full w-full"
@@ -127,11 +146,11 @@ export function FunnelChart({
                   type="category"
                   tickLine={false}
                   axisLine={false}
-                  width={110}
-                  tick={{ fontSize: 12 }}
+                  width={140}
+                  tick={{ fontSize: 11 }}
                 />
                 <ChartTooltip
-                  cursor={{ fill: "rgba(66, 65, 255, 0.05)" }}
+                  cursor={{ fill: "rgba(99, 102, 241, 0.05)" }}
                   content={<ChartTooltipContent />}
                 />
                 <Bar dataKey="count" radius={[0, 4, 4, 0]} />
@@ -139,33 +158,37 @@ export function FunnelChart({
             </ChartContainer>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-border mt-3 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-4 border-t border-border mt-3 text-center">
             <div className="p-2 rounded bg-muted/40">
               <span className="text-[11px] text-muted-foreground block">
-                Impressions
+                Visitors Landed
               </span>
-              <span className="text-lg font-bold text-foreground">
+              <span className="text-base font-bold text-foreground">
                 {impressions.toLocaleString()}
               </span>
             </div>
             <div className="p-2 rounded bg-muted/40">
               <span className="text-[11px] text-muted-foreground block">
-                Sign-up Conv.
+                Clicked 'Apply'
               </span>
-              <span className="text-lg font-bold text-primary">
-                {impressions > 0
-                  ? `${((leads / impressions) * 100).toFixed(1)}%`
-                  : "0%"}
+              <span className="text-base font-bold text-sky-600 dark:text-sky-400">
+                {safeClicks.toLocaleString()}
               </span>
             </div>
             <div className="p-2 rounded bg-muted/40">
               <span className="text-[11px] text-muted-foreground block">
-                App Conv.
+                Created Accounts
               </span>
-              <span className="text-lg font-bold text-green-600">
-                {leads > 0
-                  ? `${((applications / leads) * 100).toFixed(1)}%`
-                  : "0%"}
+              <span className="text-base font-bold text-amber-600 dark:text-amber-400">
+                {safeLeads.toLocaleString()}
+              </span>
+            </div>
+            <div className="p-2 rounded bg-muted/40">
+              <span className="text-[11px] text-muted-foreground block">
+                Submitted Applications
+              </span>
+              <span className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                {safeApps.toLocaleString()}
               </span>
             </div>
           </div>
@@ -190,12 +213,22 @@ export function FunnelChart({
                       x2="0"
                       y2="1"
                     >
-                      <stop offset="5%" stopColor="#818cf8" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#818cf8" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient
+                      id="colorClicks"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4241FF" stopOpacity={0.8} />
-                      <stop offset="95%" stopColor="#4241FF" stopOpacity={0} />
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
@@ -205,14 +238,21 @@ export function FunnelChart({
                   <Area
                     type="monotone"
                     dataKey="impressions"
-                    stroke="#818cf8"
+                    stroke="#6366f1"
                     fillOpacity={1}
                     fill="url(#colorImpressions)"
                   />
                   <Area
                     type="monotone"
+                    dataKey="clicks"
+                    stroke="#0ea5e9"
+                    fillOpacity={1}
+                    fill="url(#colorClicks)"
+                  />
+                  <Area
+                    type="monotone"
                     dataKey="leads"
-                    stroke="#4241FF"
+                    stroke="#f59e0b"
                     fillOpacity={1}
                     fill="url(#colorLeads)"
                   />

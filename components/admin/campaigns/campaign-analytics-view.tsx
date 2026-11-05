@@ -34,6 +34,7 @@ import {
   Layers,
   Globe,
   ExternalLink,
+  MousePointerClick,
 } from "lucide-react";
 import { IAnalyticsOverviewFilters, Campaign } from "@/lib/api/campaigns";
 
@@ -137,10 +138,10 @@ export function CampaignAnalyticsView() {
           "Campaign Code": c.campaignCode,
           Channel: c.platform,
           Status: c.status,
-          Impressions: c.impressionsCount,
-          "Sign-ups": c.leadsCount,
+          "Visitors Landed": c.impressionsCount,
+          "Created Accounts": c.leadsCount,
           "CTR (%)": `${ctr}%`,
-          Applications: c.applicationsCount,
+          "Submitted Applications": c.applicationsCount,
           "CVR (%)": `${cvr}%`,
           "Created Date": c.createdAt
             ? format(new Date(c.createdAt), "yyyy-MM-dd")
@@ -170,9 +171,9 @@ export function CampaignAnalyticsView() {
         "Job ID": j.jobPostId,
         "Linked Campaigns": (j.campaignNames || []).join(", ") || "Direct",
         Channel: j.platform || "Direct",
-        Impressions: j.impressions ?? 0,
-        "Sign-ups": j.signupsCount ?? 0,
-        Applications: j.applicationsCount ?? 0,
+        "Visitors Landed": j.impressions ?? 0,
+        "Created Accounts": j.signupsCount ?? 0,
+        "Submitted Applications": j.applicationsCount ?? 0,
         "CVR (%)": `${j.conversionRate ?? 0}%`,
       }));
 
@@ -196,9 +197,9 @@ export function CampaignAnalyticsView() {
         Rank: idx + 1,
         Source: s.displayName || s.platform,
         "Active Campaigns": s.campaignsCount,
-        Impressions: s.impressions,
-        "Sign-ups": s.leads,
-        Applications: s.applications,
+        "Visitors Landed": s.impressions,
+        "Created Accounts": s.leads,
+        "Submitted Applications": s.applications,
         "CVR (%)": `${s.conversionRate}%`,
       }));
 
@@ -364,11 +365,11 @@ export function CampaignAnalyticsView() {
 
       {/* High-Impact Marketing KPI Ribbons */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-        {/* Visitors Came In */}
+        {/* Visitors Landed */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Visitors Came In</span>
+              <span className="text-xs font-medium">Visitors Landed</span>
               <Eye className="h-3.5 w-3.5 text-indigo-500" />
             </div>
             <div className="text-xl font-bold font-mono text-foreground">
@@ -384,11 +385,31 @@ export function CampaignAnalyticsView() {
           </CardContent>
         </Card>
 
-        {/* Sign-ups */}
+        {/* Clicked 'Apply' */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Sign-ups</span>
+              <span className="text-xs font-medium">Clicked 'Apply'</span>
+              <MousePointerClick className="h-3.5 w-3.5 text-sky-500" />
+            </div>
+            <div className="text-xl font-bold font-mono text-foreground">
+              {isLoadingAnalyticsOverview ? (
+                <div className="h-6 w-16 bg-muted/60 animate-pulse rounded" />
+              ) : (
+                (kpis?.totalApplyClicks ?? 0).toLocaleString()
+              )}
+            </div>
+            <div className="text-[11px] text-sky-600 dark:text-sky-400 font-semibold mt-1">
+              Clicked Apply on gate
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Created Accounts */}
+        <Card className="border-border/70 shadow-xs">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-muted-foreground mb-1.5">
+              <span className="text-xs font-medium">Created Accounts</span>
               <Users className="h-3.5 w-3.5 text-amber-500" />
             </div>
             <div className="text-xl font-bold font-mono text-foreground">
@@ -404,11 +425,11 @@ export function CampaignAnalyticsView() {
           </CardContent>
         </Card>
 
-        {/* Applications */}
+        {/* Submitted Applications */}
         <Card className="border-border/70 shadow-xs">
           <CardContent className="p-4">
             <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Applications</span>
+              <span className="text-xs font-medium">Submitted Applications</span>
               <FileCheck className="h-3.5 w-3.5 text-emerald-500" />
             </div>
             <div className="text-xl font-bold font-mono text-foreground">
@@ -420,26 +441,6 @@ export function CampaignAnalyticsView() {
             </div>
             <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-semibold mt-1">
               Job applications submitted
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Sign-up CVR */}
-        <Card className="border-border/70 shadow-xs">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between text-muted-foreground mb-1.5">
-              <span className="text-xs font-medium">Sign-up CVR</span>
-              <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
-            </div>
-            <div className="text-xl font-bold font-mono text-foreground">
-              {isLoadingAnalyticsOverview ? (
-                <div className="h-6 w-16 bg-muted/60 animate-pulse rounded" />
-              ) : (
-                `${(kpis?.totalImpressions || 0) > 0 ? (((kpis?.totalLeads || 0) / (kpis?.totalImpressions || 1)) * 100).toFixed(1) : "0.0"}%`
-              )}
-            </div>
-            <div className="text-[11px] text-muted-foreground mt-1">
-              Visitors who registered
             </div>
           </CardContent>
         </Card>
@@ -459,7 +460,7 @@ export function CampaignAnalyticsView() {
               )}
             </div>
             <div className="text-[11px] text-muted-foreground mt-1">
-              Sign-ups who submitted application
+              Accounts who submitted application
             </div>
           </CardContent>
         </Card>
@@ -594,7 +595,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleSort("impressions")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Impressions</span>
+                      <span>Visitors Landed</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
@@ -603,7 +604,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleSort("leads")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Sign-ups (CTR)</span>
+                      <span>Created Accounts (CTR)</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
@@ -612,7 +613,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleSort("applications")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Applications (CVR)</span>
+                      <span>Submitted Applications (CVR)</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
@@ -759,7 +760,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleJobSort("impressions")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Impressions</span>
+                      <span>Visitors Landed</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
@@ -768,7 +769,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleJobSort("signups")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Sign-ups</span>
+                      <span>Created Accounts</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
@@ -777,7 +778,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleJobSort("applications")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Applications</span>
+                      <span>Submitted Applications</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
@@ -947,7 +948,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleSourceSort("impressions")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Impressions</span>
+                      <span>Visitors Landed</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
@@ -956,7 +957,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleSourceSort("leads")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Sign-ups (CTR)</span>
+                      <span>Created Accounts (CTR)</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
@@ -965,7 +966,7 @@ export function CampaignAnalyticsView() {
                     onClick={() => toggleSourceSort("applications")}
                   >
                     <div className="flex items-center gap-1">
-                      <span>Applications</span>
+                      <span>Submitted Applications</span>
                       <ArrowUpDown className="h-3 w-3" />
                     </div>
                   </th>
