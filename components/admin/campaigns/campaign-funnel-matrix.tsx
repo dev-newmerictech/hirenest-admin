@@ -21,10 +21,11 @@ interface StageConfig {
 
 function getStageConfig(rawStageName: string, idx: number): StageConfig {
   const lower = (rawStageName || "").toLowerCase();
+  const stepNum = idx + 1;
 
   if (lower.includes("visitor") || lower.includes("impression")) {
     return {
-      label: "1. Visitors Came In",
+      label: `${stepNum}. Visitors Came In`,
       description: "Traffic arrivals via campaign link",
       barColor: "bg-indigo-500",
       bgAccent:
@@ -34,7 +35,7 @@ function getStageConfig(rawStageName: string, idx: number): StageConfig {
 
   if (lower.includes("landing") || lower.includes("view")) {
     return {
-      label: "2. Landing Page Views",
+      label: `${stepNum}. Landing Page Views`,
       description: "Requisition views recorded",
       barColor: "bg-sky-500",
       bgAccent:
@@ -48,7 +49,7 @@ function getStageConfig(rawStageName: string, idx: number): StageConfig {
     lower.includes("register")
   ) {
     return {
-      label: "2. Sign-ups",
+      label: `${stepNum}. Sign-ups`,
       description: "Candidates registered via this campaign",
       barColor: "bg-amber-500",
       bgAccent:
@@ -58,7 +59,7 @@ function getStageConfig(rawStageName: string, idx: number): StageConfig {
 
   if (lower.includes("fast-track")) {
     return {
-      label: "4. Fast-Track Applications",
+      label: `${stepNum}. Fast-Track Applications`,
       description: "Completed fast-track screening",
       barColor: "bg-blue-600",
       bgAccent:
@@ -68,7 +69,7 @@ function getStageConfig(rawStageName: string, idx: number): StageConfig {
 
   if (lower.includes("application")) {
     return {
-      label: "3. Applications",
+      label: `${stepNum}. Applications`,
       description: "Job applications submitted via this campaign",
       barColor: "bg-emerald-500",
       bgAccent:

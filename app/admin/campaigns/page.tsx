@@ -193,6 +193,7 @@ export default function CampaignsPage() {
         search: searchQuery || undefined,
       }),
     );
+    dispatch(fetchCampaignSummary());
   }, [dispatch, currentPage, filterPlatform, filterStatus, searchQuery]);
 
   const handlePageChange = (page: number) => {

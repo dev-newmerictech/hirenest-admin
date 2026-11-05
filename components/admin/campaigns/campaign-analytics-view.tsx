@@ -356,7 +356,6 @@ export function CampaignAnalyticsView() {
         onFilterChange={handleFilterChange}
         onReset={handleResetFilters}
         platforms={platforms}
-        campaigns={campaigns}
         jobs={allJobPosts}
         campaigns={effectiveCampaigns}
         onExport={handleExport}
