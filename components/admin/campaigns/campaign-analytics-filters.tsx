@@ -31,7 +31,6 @@ interface CampaignAnalyticsFiltersProps {
   platforms: PlatformSetting[];
   campaigns?: Campaign[];
   jobs: Job[];
-  campaigns?: Campaign[];
   onExport: () => void;
   isLoading?: boolean;
 }
@@ -43,7 +42,6 @@ export function CampaignAnalyticsFilters({
   platforms,
   campaigns = [],
   jobs,
-  campaigns,
   onExport,
   isLoading,
 }: CampaignAnalyticsFiltersProps) {
