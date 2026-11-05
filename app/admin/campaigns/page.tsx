@@ -52,7 +52,16 @@ import {
 } from "@/lib/store/campaignSlice";
 import { fetchAllJobPosts } from "@/lib/store/jobPostsSlice";
 import { Campaign } from "@/lib/api/campaigns";
-import { Plus, Link2, Eye, Sparkles, BarChart3, Layers, Megaphone, RefreshCw } from "lucide-react";
+import {
+  Plus,
+  Link2,
+  Eye,
+  Sparkles,
+  BarChart3,
+  Layers,
+  Megaphone,
+  RefreshCw,
+} from "lucide-react";
 
 export default function CampaignsPage() {
   const dispatch = useAppDispatch();
@@ -184,6 +193,7 @@ export default function CampaignsPage() {
         search: searchQuery || undefined,
       }),
     );
+    dispatch(fetchCampaignSummary());
   }, [dispatch, currentPage, filterPlatform, filterStatus, searchQuery]);
 
   const handlePageChange = (page: number) => {
@@ -449,42 +459,53 @@ export default function CampaignsPage() {
               </button>
             </div>
 
-            {/* Campaign Selection Dropdown (Global: controls both sections) */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                <Megaphone className="h-3.5 w-3.5 text-primary" />
-                <span className="font-semibold text-foreground">Campaign:</span>
-              </div>
-              <Select
-                value={selectedCampaignCode || "all"}
-                onValueChange={(val) => handleGlobalCampaignChange(val)}
-              >
-                <SelectTrigger className="w-[240px] sm:w-[280px] text-xs h-9 bg-background border-primary/40 font-medium shadow-2xs">
-                  <SelectValue placeholder="All Campaigns (Combined)" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">
-                    <span className="font-semibold">All Campaigns (Combined / Collective)</span>
-                  </SelectItem>
-                  {campaignOptions.map((c) => (
-                    <SelectItem key={c.id || c.campaignCode} value={c.campaignCode}>
-                      {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {selectedCampaignCode && selectedCampaignCode !== "all" && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleGlobalCampaignChange("all")}
-                  className="h-8 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+            {/* Campaign Selection Dropdown (Only visible on Campaigns tab to eliminate redundant filter on Analytics tab) */}
+            {activeTab === "campaigns" && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Megaphone className="h-3.5 w-3.5 text-primary" />
+                  <span className="font-semibold text-foreground">
+                    Campaign:
+                  </span>
+                </div>
+                <Select
+                  value={selectedCampaignCode || "all"}
+                  onValueChange={(val) => handleGlobalCampaignChange(val)}
                 >
-                  View All
-                </Button>
-              )}
-            </div>
+                  <SelectTrigger className="w-[240px] sm:w-[280px] text-xs h-9 bg-background border-primary/40 font-medium shadow-2xs">
+                    <SelectValue placeholder="All Campaigns (Combined)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">
+                      <span className="font-semibold">
+                        All Campaigns (Combined / Collective)
+                      </span>
+                    </SelectItem>
+                    {campaignOptions.map((c) => (
+                      <SelectItem
+                        key={c.id || c.campaignCode}
+                        value={c.campaignCode}
+                      >
+                        {c.name
+                          ? `${c.name} (${c.campaignCode})`
+                          : c.campaignCode}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedCampaignCode && selectedCampaignCode !== "all" && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleGlobalCampaignChange("all")}
+                    className="h-8 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    View All
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           {activeTab === "analytics" ? (
@@ -538,7 +559,9 @@ export default function CampaignsPage() {
                             key={c.id || c.campaignCode}
                             value={c.campaignCode}
                           >
-                            {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
+                            {c.name
+                              ? `${c.name} (${c.campaignCode})`
+                              : c.campaignCode}
                           </SelectItem>
                         ))}
                       </SelectContent>
