@@ -431,12 +431,14 @@ export interface IAttributedApplicantsFilters {
 
 export interface IAttributedApplicantItem {
   id: string;
-  applicationId: string;
+  applicationId?: string;
   candidateName: string;
   candidateEmail: string;
   candidatePhone?: string;
   candidateCountryCode?: number;
   resumeUrl?: string;
+  hasResume?: boolean;
+  stage?: string;
   skills: string[];
   jobTitle: string;
   jobPostId: string;

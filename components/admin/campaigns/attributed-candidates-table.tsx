@@ -239,10 +239,6 @@ export function AttributedCandidatesTable() {
                     {p.displayName || p.platform.toUpperCase()}
                   </SelectItem>
                 ))}
-                <SelectItem value="fast-track">
-                  Fast-Track Onboarding
-                </SelectItem>
-                <SelectItem value="direct">Direct Website</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -272,7 +268,7 @@ export function AttributedCandidatesTable() {
             </Select>
           </div>
 
-          {/* Status Filter */}
+          {/* Funnel Stage / Candidate Status Filter */}
           <div className="lg:col-span-2">
             <Select
               value={applicantFilters.status || "all"}
@@ -281,22 +277,16 @@ export function AttributedCandidatesTable() {
               }
             >
               <SelectTrigger className="h-8 text-xs">
-                <SelectValue placeholder="All Statuses" />
+                <SelectValue placeholder="All Candidates" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="applied">Applied</SelectItem>
-                <SelectItem value="viewedJobprovider">Reviewed</SelectItem>
-                <SelectItem value="contacted">Contacted</SelectItem>
-                <SelectItem value="shortListed">Shortlisted</SelectItem>
-                <SelectItem value="interviewScheduled">
-                  Interview Scheduled
+                <SelectItem value="all">All Candidates</SelectItem>
+                <SelectItem value="applied">Application Completed</SelectItem>
+                <SelectItem value="signup_only">
+                  Sign-up Only (Drop-off)
                 </SelectItem>
-                <SelectItem value="interviewCompleted">
-                  Interview Completed
-                </SelectItem>
-                <SelectItem value="hired">Hired</SelectItem>
-                <SelectItem value="rejected">Rejected</SelectItem>
+                <SelectItem value="has_resume">Resume Attached</SelectItem>
+                <SelectItem value="no_resume">No Resume</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -479,18 +469,30 @@ export function AttributedCandidatesTable() {
                       {/* Status */}
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold capitalize ${
-                            item.status === "hired"
-                              ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
-                              : item.status === "shortListed" ||
-                                  item.status === "interviewScheduled"
-                                ? "bg-purple-500/15 text-purple-700 dark:text-purple-400"
-                                : item.status === "rejected"
-                                  ? "bg-red-500/15 text-red-700 dark:text-red-400"
-                                  : "bg-muted text-muted-foreground"
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            item.stage === "signup_only" ||
+                            item.status === "signup_only"
+                              ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30"
+                              : item.stage === "applied" ||
+                                  item.status === "applied"
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                                : item.status === "hired"
+                                  ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                  : item.status === "shortListed" ||
+                                      item.status === "interviewScheduled"
+                                    ? "bg-purple-500/15 text-purple-700 dark:text-purple-400"
+                                    : item.status === "rejected"
+                                      ? "bg-red-500/15 text-red-700 dark:text-red-400"
+                                      : "bg-muted text-muted-foreground"
                           }`}
                         >
-                          {item.status}
+                          {item.stage === "signup_only" ||
+                          item.status === "signup_only"
+                            ? "Sign-up Only (Drop-off)"
+                            : item.stage === "applied" ||
+                                item.status === "applied"
+                              ? "Application Completed"
+                              : item.status}
                         </span>
                       </td>
 

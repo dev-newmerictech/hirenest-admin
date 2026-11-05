@@ -29,6 +29,7 @@ interface CampaignAnalyticsFiltersProps {
   onFilterChange: (filters: Partial<IAnalyticsOverviewFilters>) => void;
   onReset: () => void;
   platforms: PlatformSetting[];
+  campaigns?: Campaign[];
   jobs: Job[];
   campaigns?: Campaign[];
   onExport: () => void;
@@ -40,6 +41,7 @@ export function CampaignAnalyticsFilters({
   onFilterChange,
   onReset,
   platforms,
+  campaigns = [],
   jobs,
   campaigns,
   onExport,
@@ -223,31 +225,23 @@ export function CampaignAnalyticsFilters({
           <span>Filters:</span>
         </div>
 
-        {/* Campaign Select (Primary Dimension) */}
+        {/* Campaign Filter Select */}
         <Select
-          value={filters.campaignCode || filters.campaignId || "all"}
-          onValueChange={(val) => {
-            if (val === "all") {
-              onFilterChange({ campaignCode: undefined, campaignId: undefined });
-            } else {
-              onFilterChange({ campaignCode: val, campaignId: undefined });
-            }
-          }}
+          value={filters.campaignCode || "all"}
+          onValueChange={(val) =>
+            onFilterChange({ campaignCode: val === "all" ? undefined : val })
+          }
         >
-          <SelectTrigger className="w-[210px] text-xs h-8 bg-background border-primary/40 font-medium">
+          <SelectTrigger className="w-[200px] text-xs h-8 bg-background font-medium">
             <SelectValue placeholder="All Campaigns (Combined)" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">
-              <span className="font-semibold">All Campaigns (Combined)</span>
-            </SelectItem>
-            {campaigns
-              ?.filter((c) => Boolean(c && c.campaignCode && c.campaignCode.trim()))
-              .map((c) => (
-                <SelectItem key={c.id || c.campaignCode} value={c.campaignCode}>
-                  {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
-                </SelectItem>
-              ))}
+            <SelectItem value="all">All Campaigns (Combined)</SelectItem>
+            {campaigns.map((c) => (
+              <SelectItem key={c.id || c.campaignCode} value={c.campaignCode}>
+                {c.name ? `${c.name} (${c.campaignCode})` : c.campaignCode}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
@@ -304,7 +298,8 @@ export function CampaignAnalyticsFilters({
         </Select>
 
         {/* Active Filter Clear Pill */}
-        {(filters.platform !== "all" && filters.platform) ||
+        {(filters.campaignCode && filters.campaignCode !== "all") ||
+        (filters.platform !== "all" && filters.platform) ||
         (filters.status !== "all" && filters.status) ||
         (filters.jobPostId !== "all" && filters.jobPostId) ||
         (filters.campaignCode !== "all" && filters.campaignCode) ||
